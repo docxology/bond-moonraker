@@ -1,6 +1,6 @@
 # moonraker skill — AGENTS.md
 
-Project-scoped skill bundle for the `moonraker` exemplar.
+Project-scoped skill bundle for the `moonraker` (DRAX) package.
 
 | File | Purpose |
 | --- | --- |
@@ -12,10 +12,11 @@ Project-scoped skill bundle for the `moonraker` exemplar.
 
 Agents that need to:
 
-- Drive the in-repo exemplar end-to-end.
-- Fork this exemplar as a starting scaffold.
-- Verify layer boundaries and thin-orchestrator contracts.
+- Drive the moonraker DRAX package end-to-end.
+- Implement/verify the BOND-API `MissionProvider` adapter.
+- Validate layer boundaries and zero-mock / determinism contracts.
 
 ## Cross-refs
 
 - Project root: [`../../..`](../../../).
+- BOND suite skill: `bond-suite-package-development`.

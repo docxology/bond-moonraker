@@ -1,82 +1,31 @@
-# src/ - Project Logic
+# src/ — moonraker domain core + mission adapter
 
-Core optimization algorithms, shared experiment configuration, analysis builders, figure generators, dashboard payloads, and manuscript-variable extraction for the code exemplar. Mathematical primitives stay pure; generated-output workflows live in importable modules so scripts remain thin wrappers.
+Importable logic for the moonraker (DRAX) package. The domain core is pure and
+infrastructure-free; `mission.py` is the thin adapter to the frozen BOND-API
+protocol.
 
-## Quick Start
-
-```python
-import logging
-
-import numpy as np
-from optimizer import gradient_descent, quadratic_function
-
-logger = logging.getLogger(__name__)
-
-# Simple optimization example
-result = gradient_descent(
-    initial_point=np.array([0.0]),
-    objective_func=lambda x: quadratic_function(x),
-    gradient_func=lambda x: x - 1,  # Gradient of f(x) = 0.5*x^2 - x
-    step_size=0.1
-)
-
-logger.info(f"Optimal solution: {result.solution}")
-```
-
-## Key Features
-
-- **Gradient descent** optimization algorithm
-- **Quadratic function** evaluation, gradients, and analytical optimum (`quadratic_optimum`)
-- **Shared experiment config** in `experiment_config.py` (single loader for `manuscript/config.yaml`)
-- **Importable analysis pipeline** in `analysis/`
-- **Matplotlib figures** in `figures/`
-- **Plotly dashboard builder** in `dashboard.py`
-- **Manuscript `{{TOKEN}}` map** in `manuscript_variables.py`
-- **API reference builder** in `documentation.py` (invoked by `scripts/generate_api_docs.py`)
-- **Reproducible results** with deterministic behavior
-- **Type-safe** with type hints
-
-## Common Commands
-
-### Import and Use
+## Quick start
 
 ```python
-from experiment_config import load_experiment_config
-from optimizer import (
-    gradient_descent,
-    quadratic_function,
-    compute_gradient,
-    quadratic_optimum,
-    OptimizationResult,
-)
+from moonraker.shuttle_ops import compute_timeline, DRAX_HIJACK_TIMELINE
+from moonraker.centrifuge import build_training_profile, profile_is_safe
 
-cfg = load_experiment_config()
-x_star, f_star = quadratic_optimum(cfg.A_array(), cfg.b_array())
+schedule = compute_timeline(DRAX_HIJACK_TIMELINE)  # CPM hijack timeline
+profile = build_training_profile(target_g=6.0, radius_m=8.0, sustain_s=12.0)
+safe, metrics = profile_is_safe(profile, g_limit=9.0, duration_limit_s=30.0)
 ```
 
-### Run Tests
+## Modules
 
-```bash
-cd projects/working/bond/moonraker
-uv run pytest tests/ --cov=src --cov-fail-under=90
-```
+- `shuttle_ops.py` — pure Critical-Path-Method shuttle-hijack timeline.
+- `orbital_logistics.py` — pure Kepler orbit physics + station logistics.
+- `centrifuge.py` — pure g-force training-profile models.
+- `mission_results.py` — canonical deterministic result computation.
+- `mission.py` — BOND-API `MissionProvider` adapter + gadget registration.
+- `manuscript_variables.py` — `{{TOKEN}}` hydration.
+- `figures.py` — deterministic matplotlib figure generators.
 
-## Architecture
+## Rules
 
-```mermaid
-graph TD
-    YAML[manuscript/config.yaml] --> CFG[experiment_config.py]
-    CFG --> ANA[analysis/]
-    CFG --> FIG[figures/]
-    CFG --> DASH[dashboard.py]
-    CFG --> VARS[manuscript_variables.py]
-
-    ANA --> OPT[optimizer.py]
-    FIG --> OPT
-    DASH --> OPT
-    VARS --> OPT
-```
-
-## More Information
-
-See [AGENTS.md](AGENTS.md) for technical documentation.
+- Pure domain core imports stdlib/math only (no `bond_api`/`infrastructure`).
+- Deterministic: no untracked RNG, no wall-clock in persisted artifacts.

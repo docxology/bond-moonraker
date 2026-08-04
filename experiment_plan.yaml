@@ -1,25 +1,38 @@
+mission: drax
+basis: Moonraker (1979)
+core_concepts:
+  - shuttle_ops: "Space-shuttle hijack timeline as a critical-path (CPM) network."
+  - orbital_logistics: "Drax station orbital mechanics, launch windows and consumables capacity."
+  - centrifuge: "Centrifuge g-force training profiles bounded by a g-tolerance envelope."
+entry_points:
+  - scripts/run_mission.py
+  - src/moonraker/mission.py (BOND-API MissionProvider)
+parameters:
+  deadline_min: 60.0
+  station_altitude_km: 350.0
+  crew: 6
+  capacity_kg: 5400.0
+  rate_kg_per_person_day: 2.0
+  resupply_interval_days: 6.0
+  centrifuge_target_g: 6.0
+  centrifuge_radius_m: 8.0
+  g_limit: 9.0
 conditions:
-  - name: conservative_step
+  - name: nominal_deadline
+    params: {deadline_min: 60.0}
     role: reference
-    description: "Stable gradient-descent step below the spectral bound."
-  - name: near_optimal_step
-    role: proposed
-    description: "Template-recommended step near the stable convergence region."
-  - name: aggressive_step
-    role: variant
-    description: "Stress condition near or above the stability boundary."
-metrics:
-  primary:
-    name: objective_value
-    direction: minimize
-protocol: "Run the deterministic quadratic optimization sweep with identical initialization, seeds, tolerance, and iteration cap across all declared step-size conditions."
-expected_figures:
-  - fig:convergence_plot
-  - fig:performance_benchmark
-  - fig:step_size_sensitivity
-expected_tables:
-  - tbl:optimization_results
-baselines:
-  - conservative_step
-ablations:
-  - aggressive_step
+  - name: tight_deadline
+    params: {deadline_min: 30.0}
+    role: ablation
+  - name: high_g
+    params: {centrifuge_target_g: 9.0}
+    role: ablation
+primary_metric:
+  name: timeline_margin_min
+  direction: maximize
+outputs:
+  - output/data/mission_results.json
+  - output/data/manuscript_variables.json
+  - output/figures/timeline_critical_path.png
+  - output/figures/orbit_period_windows.png
+  - output/figures/centrifuge_g_profile.png

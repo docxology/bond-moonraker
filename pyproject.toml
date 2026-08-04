@@ -1,5 +1,7 @@
-# Code Project Configuration
-# Inherits workspace settings from root pyproject.toml
+# PROJECT BOND — moonraker (Moonraker, 1979) · mission codename DRAX
+# Special-agent mission software: space-shuttle hijack timeline modelling,
+# Drax space-station orbital logistics, and centrifuge g-force training
+# profiles. This package is a local-only member of the BOND suite (never push).
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -7,9 +9,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moonraker"
-version = "2.5.2"
+version = "0.2.0"
 license = {text = "MIT"}
-description = "Fully-tested codebase with numerical optimization and analysis"
+description = "DRAX: special-agent mission software — shuttle hijack timelining, orbital logistics, centrifuge g-profiles"
 authors = [
     {name = "Daniel Ari Friedman", email = "daniel@activeinference.institute"}
 ]
@@ -18,27 +20,29 @@ dependencies = [
     "numpy>=1.24.0",
     "matplotlib>=3.7.0",
     "pyyaml>=6.0",
-    "defusedxml>=0.7.1",
+    "bond-api",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "mypy>=1.8.0",
+    "ruff>=0.4.0",
+    "types-PyYAML>=6.0.12",
 ]
 
+[tool.uv.sources]
+bond-api = { path = "/Users/4d/Documents/GitHub/template/projects/working/bond/bond-api" }
+
 [tool.pytest.ini_options]
-# RASP Strict Assertion: Tests must be clearly separated and structurally identifiable
 pythonpath = [".", "src"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-# `--strict-markers` prevents typos in marker definitions
 addopts = "-v --tb=short --strict-markers"
 
 [tool.coverage.run]
-# Core Template Rule: We only calculate coverage for primary source code (`src/`),
-# ensuring test code itself does not artificially inflate metric scores.
 source = ["src"]
 branch = true
 omit = [
@@ -48,8 +52,6 @@ omit = [
 ]
 
 [tool.coverage.report]
-# ≥90% on src/ is the enforced gate; live coverage % is tracked in
-# docs/_generated/COUNTS.md (do not hardcode it here — it drifts).
 fail_under = 90
 show_missing = true
 precision = 2
@@ -59,5 +61,19 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-[tool.uv]
-# Inherits workspace settings from root pyproject.toml
+[tool.mypy]
+python_version = "3.10"
+mypy_path = ["src"]
+explicit_package_bases = true
+namespace_packages = true
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+src = ["src", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]

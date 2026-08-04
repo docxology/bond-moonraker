@@ -6,25 +6,21 @@
       "orcid": "0000-0001-6232-9096"
     }
   ],
-  "description": "Source code for Convergence Analysis of Gradient Descent Optimization (2026).",
+  "description": "DRAX: special-agent mission software modelled on Moonraker (1979). Space-shuttle hijack timelining (critical path method), Drax space-station orbital logistics (Kepler orbit physics, launch windows, consumables), and centrifuge g-force training profiles. Member of the local-only PROJECT BOND suite.",
   "keywords": [
-    "optimization algorithms",
-    "gradient descent",
-    "convergence analysis",
-    "numerical methods",
-    "mathematical programming",
-    "reproducible research",
-    "infrastructure automation"
+    "space-shuttle hijack timeline",
+    "critical path method",
+    "space-station orbital logistics",
+    "Kepler orbital mechanics",
+    "launch windows",
+    "centrifuge g-force training",
+    "g-tolerance envelope",
+    "space-station resupply",
+    "reproducible research"
   ],
   "license": "MIT",
-  "related_identifiers": [
-    {
-      "identifier": "10.5281/zenodo.20417136",
-      "relation": "isVersionOf",
-      "scheme": "doi"
-    }
-  ],
-  "title": "Convergence Analysis of Gradient Descent Optimization",
+  "related_identifiers": [],
+  "title": "Moonraker: DRAX — Special-Agent Mission Software",
   "upload_type": "software",
-  "version": "2.5.2"
+  "version": "0.2.0"
 }

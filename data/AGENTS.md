@@ -1,27 +1,17 @@
-# Data Directory — Agent Guide
+# Data directory — agent guide (moonraker / DRAX)
 
-Versioned project **inputs** only. Pipeline outputs must not be committed here.
+Versioned project **inputs** only; pipeline outputs must not be committed
+here.
 
 ## `claim_ledger.yaml`
 
-Evidence-registry for manuscript claims that are intentionally sourced from code, examples, or generated reports rather than `{{VARIABLE}}` injection.
+Evidence registry for manuscript claims sourced from code / generated
+artifacts rather than `{{TOKEN}}` injection. Schema: `claim_id`, `kind`,
+`value`, `source`, `source_tier`, `freshness`, `artifact_path`.
 
-### Schema (preserve when adding rows)
+## Rules
 
-| Field | Purpose |
-| --- | --- |
-| `claim_id` | Stable identifier |
-| `kind` | Claim category |
-| `value` | Declared numeric or textual value |
-| `source` | Provenance (module, manuscript section, artifact) |
-| `source_tier` | Trust tier for validation |
-| `freshness` | Staleness policy |
-| `artifact_path` | Optional path to backing file |
-
-## Edit protocol
-
-1. Edit only when manuscript claims, figure defaults, or source-backed numeric facts change.
-2. Re-run evidence validation / pipeline stages that consume the ledger.
-3. Do not store generated CSV/JSON/PNG under `data/`.
-
-Quick orientation: [`README.md`](README.md).
+- Update only when source-backed numeric facts change.
+- Keep values consistent with `src/moonraker/mission_results.py` and
+  `output/data/mission_results.json`.
+- Never store generated JSON/CSV/PNG under `data/`.

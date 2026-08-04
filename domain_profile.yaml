@@ -1,49 +1,74 @@
-domain: code_research
-display_name: Code Research Exemplar
+domain: specialized_agent_mission
+display_name: Moonraker DRAX Mission Software
 required_packages:
   - numpy
   - matplotlib
-  - pytest
+  - pyyaml
+  - bond-api
 preferred_outputs:
-  - pdf
-  - html
-  - docx
-  - epub
+  - json
+  - png
+  - md
 validation_gates:
-  - experiment_method_design
+  - mission_method_design
   - artifact_manifest
   - evidence_grounding
-  - render_validation
-  - publication_readiness
+  - determinism_check
+  - protocol_contract
 figure_types:
-  - convergence_plot
-  - performance_benchmark
-  - sensitivity_analysis
+  - timeline_critical_path
+  - orbit_period_windows
+  - centrifuge_g_profile
 citation_policy: official_or_scholarly
-source_policy: "Prefer primary project outputs, official package documentation, and scholarly optimization references."
+source_policy: "Prefer primary project outputs, official orbital-mechanics references, and the frozen BOND-API protocol contract."
 review_gates:
-  - experiment_method_design
-  - render_validation
-  - publication_readiness
+  - mission_method_design
+  - determinism_check
+  - protocol_contract
 artifact_expectations:
+  - output/data/mission_results.json
   - output/data/manuscript_variables.json
-  - output/data/optimization_results.csv
-  - output/figures/convergence_plot.png
-  - output/reports/validation_report.json
-  - output/pdf/template_code_project_combined.pdf
+  - output/figures/timeline_critical_path.png
+  - output/figures/orbit_period_windows.png
+  - output/figures/centrifuge_g_profile.png
+  - output/manuscript/00_abstract.md
 benchmark_rubric:
-  name: code-research-readiness
+  name: drax-mission-readiness
   dimensions:
-    - name: output_validity
+    - name: determinism
       weight: 1.0
-    - name: reproducibility_bundle
+    - name: protocol_contract
       weight: 1.0
     - name: artifact_manifest
       weight: 1.0
     - name: evidence_grounding
-      weight: 2.0
-    - name: render_success
       weight: 1.0
-    - name: publication_readiness
+    - name: reproducibility_bundle
       weight: 1.0
-llm_prompt_guidance: "Use generated optimization artifacts and manuscript variables as the evidence source; do not invent numeric results."
+llm_prompt_guidance: "Use the deterministic mission results and manuscript variables as the evidence source; do not invent numeric results."
+conditions:
+  - name: nominal_deadline
+    role: reference
+    description: "Shuttle point of no return (60 min) within which the hijack timeline must complete."
+  - name: tight_deadline
+    role: variant
+    description: "Stress condition where the deadline falls inside the critical path length."
+  - name: high_g
+    role: variant
+    description: "Centrifuge profile at or above the g-duration tolerance limit."
+metrics:
+  primary:
+    name: timeline_margin_min
+    direction: maximize
+protocol: "Run the deterministic hijack timeline, orbital-logistics, and centrifuge computations from a single fixed parameter set with identical seeds, tolerances and iteration caps."
+expected_figures:
+  - fig:timeline
+  - fig:orbit
+  - fig:centrifuge
+expected_tables:
+  - tbl:mission_parameters
+baselines:
+  - nominal_deadline
+ablations:
+  - tight_deadline
+  - high_g

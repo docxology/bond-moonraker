@@ -1,13 +1,16 @@
 # moonraker/data
 
-Project-maintained **inputs** for the code exemplar (not pipeline outputs).
+Project-maintained **inputs** for the moonraker (DRAX) package — not pipeline
+outputs.
 
-## Quick reference
+## Contents
 
-| File | Role |
-| --- | --- |
-| `claim_ledger.yaml` | Source-backed numeric and artifact claims for evidence validation |
+- `claim_ledger.yaml` — evidence registry for source-backed manuscript claims
+  (all values computed from `src/moonraker/`, never hand-authored).
 
-Generated analysis outputs belong under `output/` during pipeline runs, not here.
+## Edit protocol
 
-Schema and edit protocol: [`AGENTS.md`](AGENTS.md).
+1. Update only when source-backed numeric facts change.
+2. Keep the values consistent with `src/moonraker/mission_results.py` and
+   `output/data/mission_results.json`.
+3. Do not store generated JSON/CSV/PNG under `data/`.

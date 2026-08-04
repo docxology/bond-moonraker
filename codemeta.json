@@ -13,19 +13,21 @@
       "givenName": "Daniel Ari"
     }
   ],
-  "codeRepository": "https://github.com/docxology/moonraker",
-  "dateModified": "2026-07-10",
-  "identifier": "10.5281/zenodo.20417136",
+  "codeRepository": "",
+  "dateModified": "2026-08-04",
+  "identifier": "",
   "keywords": [
-    "optimization algorithms",
-    "gradient descent",
-    "convergence analysis",
-    "numerical methods",
-    "mathematical programming",
-    "reproducible research",
-    "infrastructure automation"
+    "space-shuttle hijack timeline",
+    "critical path method",
+    "space-station orbital logistics",
+    "Kepler orbital mechanics",
+    "launch windows",
+    "centrifuge g-force training",
+    "g-tolerance envelope",
+    "space-station resupply",
+    "reproducible research"
   ],
   "license": "https://spdx.org/licenses/MIT",
-  "name": "Convergence Analysis of Gradient Descent Optimization",
-  "version": "2.5.2"
+  "name": "Moonraker: DRAX — Special-Agent Mission Software",
+  "version": "0.2.0"
 }

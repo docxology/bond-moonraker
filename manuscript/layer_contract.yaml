@@ -1,5 +1,25 @@
-# Code-centric exemplar: optional monorepo adapters only.
-allow_infrastructure_imports:
-  - src/analysis/_infra.py
-  - src/_runtime.py
-  - src/benchmark_support.py
+# moonraker — DRAX mission layer contract
+package: moonraker
+codename: DRAX
+kind: bond-film-provider
+protocol: bond-api (frozen MissionProvider)
+
+surfaces:
+  pure_domain_core:
+    files: [src/moonraker/shuttle_ops.py, src/moonraker/orbital_logistics.py, src/moonraker/centrifuge.py, src/moonraker/mission_results.py]
+    rule: "no bond_api, no infrastructure imports"
+  protocol_adapter:
+    files: [src/moonraker/mission.py]
+    rule: "thin adapter to the frozen bond_api protocol"
+  io_rendering:
+    files: [src/moonraker/manuscript_variables.py, src/moonraker/figures.py]
+    rule: "I/O and rendering only"
+  orchestrators:
+    files: [scripts/]
+    rule: "thin CLIs (bootstrap + delegate)"
+
+enforced_by:
+  - "uv run pytest tests/ --cov=src --cov-fail-under=90"
+  - "uv run ruff check src/ scripts/ tests/"
+  - "uv run mypy src/ scripts/"
+  - "lineage template[_]code_project -> zero in prose"

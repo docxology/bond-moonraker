@@ -10,3 +10,6 @@ __pycache__/
 
 # Project-local virtualenvs (root .venv is shared)
 .venv/
+
+# Regenerable artifacts (script smoke tests leave the tree clean)
+output/

@@ -1,68 +1,79 @@
-# moonraker TODO
+# TODO — moonraker (mission DRAX)
 
-Forward-only backlog for the code-first numerical exemplar — the reference
-thin-orchestrator control-positive path for code-centric research projects.
+Phase-2 build record for the `PROJECT BOND` moonraker package. This file lists
+what is built and any declared integration points.
 
-## Current validation evidence
+## Built (phase 2)
 
-- Manuscript pre-render gate: `uv run python -m infrastructure.validation.cli prerender projects/working/bond/moonraker/manuscript --repo-root .`
-- Project tests and coverage: `uv run pytest projects/working/bond/moonraker/tests/ --cov=projects/working/bond/moonraker/src --cov-fail-under=90`
-- Stage 02 analysis must write `output/data/optimization_results.csv` before strict manuscript-variable generation: `uv run python scripts/pipeline/stage_02_analysis.py --project templates/moonraker`
-- Stage 03 manuscript render: `uv run python scripts/pipeline/stage_03_render.py --project templates/moonraker`
-- Stage 04 output validation: `uv run python scripts/pipeline/stage_04_validate.py --project templates/moonraker`
-- Repo drift gate: `uv run python scripts/audit/check_template_drift.py --strict`
-- Code quality: `uv run ruff check projects/working/bond/moonraker/src/` and `uv run mypy projects/working/bond/moonraker/src/` must both pass clean.
-- Benchmark reproducibility: tracked benchmark reports and figures contain only deterministic facts; wall-clock timing is logged as a runtime diagnostic, and two-run byte-equality tests enforce the boundary.
-- Live test count and measured coverage percentage → [`docs/_generated/COUNTS.md`](../../../docs/_generated/COUNTS.md) (regenerated, never hardcoded here; both numbers drift faster than this file).
+### Pure domain core (`src/moonraker/`, infrastructure-free + importable without bond-api)
 
-## Accuracy pass — 2026-08-02 (measured)
+- **shuttle_ops.py** — space-shuttle hijack timeline as a Critical Path Method
+  network. `TimelineActivity`, `compute_timeline` (forward/backward pass plus
+  cycle detection), `timeline_feasibility` (deadline margin), and the canonical
+  `DRAX_HIJACK_TIMELINE` (8 phases, total 57.0 min, feasible within 60 min).
+- **orbital_logistics.py** — Drax station orbital logistics. `orbital_period`
+  (Kepler), `circular_speed`, `orbits_per_day`, `visibility_half_angle`,
+  `pass_duration`, `launch_windows`, and the consumables model
+  (`consumables_days`, `depletion_day`, `sustainable_crew`,
+  `resupply_interval`).
+- **centrifuge.py** — centrifuge g-force training profiles. `g_from_rpm` /
+  `rpm_for_g`, `max_sustained_duration` (g-tolerance envelope),
+  `build_training_profile` (ramp/sustain/decay), `profile_is_safe`.
 
-- Prerender: clean (no render-blocking pitfalls, no undefined citations).
-- pytest: **242 passed**, **97.67 %** coverage on `src/` (floor 90 %).
-- Stage 02: 8/8 analysis scripts; 46 manuscript variables generated.
-- Stage 03: combined PDF rendered (25 pages), `Valid PDFs: 1/1`; 0 `^! ` lines in compile logs; 0 `??` in `pdftotext`.
-- Stage 04: all checks pass (PDF, bookends, markdown, structure, figure registry, evidence registry, design overlays, artifact manifest); rendered-provenance receipt written (54 sources / 18 config / 72 outputs).
-- Drift: `check_template_drift.py --project templates/moonraker --strict` → no drift detected.
+### Protocol adapter
 
-### Fixed in this pass
+- **mission.py** — implements the frozen BOND-API `MissionProvider`
+  (`brief`/`recon`/`plan`/`execute`/`debrief`), slug `moonraker`, codename
+  `DRAX`, fixed seed 23, stable SHA-256 `input_hash`; registers real domain
+  functions as gadgets with `bond_api.registry.GadgetRegistry`.
+- **mission_results.py** — canonical deterministic result computation feeding
+  the manuscripts and the `execute`/`run_mission` CLIs.
 
-- `fig:complexity` caption corrected to the actual 3×2 six-panel layout; replaced the false "both saturate at the iteration cap" claim (α=2.5 terminates via `non_finite`) and described the stability-width and cross-profile bottom panels.
-- Agency-category boundary corrected to the code's `α < 0.3` threshold (`manuscript/03_results.md`).
-- Removed literal `{{CONFIG_*}}` / `{{RESULT_*}}` wildcard prose in `01_introduction.md` and `07_scope_and_related_work.md` so the rendered PDF no longer leaks raw braces.
-- `scripts/AGENTS.md` + `scripts/README.md`: listed the on-disk `04_benchmark_stage.py`, `08_connector_search.py`, `09_provenance_record.py`, `10_research_workflow.py`, `__init__.py`; replaced stale `[0.01, 0.05, 0.1, 0.2]` step-size grids with the configured six-value grid.
-- `tests/AGENTS.md` + `tests/README.md`: added `test_benchmark_support.py` to diagram, class line, and bullets.
-- Root `AGENTS.md`: refreshed `SRC_F` / `M_F` mermaid listings, ProgressBar grid, stray `##` heading.
-- `docs/AGENTS.md`: corrected the `{{VARIABLE}}` token count (28 → 46) and stale per-file line counts; `docs/syntax_guide.md`: `CONFIG_VERSION` 2.5.2, added missing `RESULT_*` / `ARTIFACT_*` / `STABILITY_FUNCTION` rows, corrected the "never use `\begin{equation}`" guidance (the manuscript uses that form and it resolves).
-- `manuscript/AGENTS.md`: version 2.5.2; File Inventory token lists now match the live per-file `{{TOKEN}}` usage exactly (verified programmatically).
-- `docs/README.md`: removed the stale "127 files, 14 subdirectories" literal (COUNTS.md is authoritative).
-- Added `.agents/README.md` and `.agents/skills/README.md` per the shared exemplar catalog contract; all relative cross-references resolve.
+### Manuscript, variables, figures
 
-## Integrity and template-status gaps
+- **manuscript_variables.py** — `{{TOKEN}}` hydration from
+  `manuscript/config.yaml` + `mission_results`; `save_variables`,
+  `write_resolved_manuscript_tree` (no infrastructure dependency).
+- **figures.py** — three deterministic matplotlib figures
+  (`timeline_critical_path.png`, `orbit_period_windows.png`,
+  `centrifuge_g_profile.png`).
+- **manuscript/** — tokenised DRAX sections (`00_abstract` … `99_references`).
 
-- Keep this exemplar as the smallest reliable control-positive path for code-centric research projects.
-- Keep dashboard, API docs, figures, and manuscript variables generated from source, not hand-maintained output snapshots.
-- Add a project-local output validation script only if it checks artifacts beyond the generic Stage 04 validators.
-- Add or document a stable final artifact-manifest refresh path for single-stage analysis/render/copy checks. **Documented:** `infrastructure.core.pipeline.artifacts.snapshot_current_artifact_manifest` serves this role.
+### Scripts (`scripts/`, thin)
 
-## Configurable-surface gaps
+`brief.py`, `recon.py`, `plan.py`, `execute.py`, `debrief.py` (one CLI per
+mission phase), `run_mission.py` (flagship: full flow + regenerable artifacts
+under `output/`), `z_generate_manuscript_variables.py`.
 
-- Keep `manuscript/config.yaml.example` as the richer copy-and-customize template for publication, LLM, testing, and steganography toggles.
-- Add any future optimizer hyperparameter config under typed source loaders rather than reading ad hoc YAML from scripts.
+### Tests (`tests/`, zero mocks, deterministic)
 
-## Documentation and signposting gaps
+`test_shuttle_ops.py`, `test_orbital_logistics.py`, `test_centrifuge.py`,
+`test_mission.py` (protocol + discovery + gadgets), `test_mission_results.py`,
+`test_manuscript_variables.py` (incl. live `{{TOKEN}}` cross-reference),
+`test_figures.py`, `test_scripts_smoke.py`.
 
-- Keep README quick-start commands aligned with the qualified project name `templates/moonraker`.
-- Link new public artifacts from README, AGENTS, and `docs/_generated/exemplar_roster.md` through the generator.
+## Gates
 
-## Test and validator gaps
+- `pytest --cov=src --cov-fail-under=90`: **98 passed, 99.14% line+branch**.
+- `ruff check` + `ruff format`: clean.
+- `mypy src/ scripts/`: clean.
+- Lineage `template[_]code_project` in prose: zero.
+- Git status clean after the path-scoped commit.
 
-- Add a negative control before widening optimizer claims beyond the bundled deterministic objectives.
-- Add dashboard schema assertions whenever dashboard fields or chart payloads change.
-- Close remaining infrastructure-path branch misses in `analysis/scientific_reports.py` and `analysis/workflow.py` with subprocess isolation tests mirroring `TestImportFallback` if coverage gates tighten further.
+## Declared integration points
 
-## Ordered improvement ladder
+- **bond-api** (done, phase 1): local path dependency; `mission.py` adapts the
+  frozen protocol. Discovery: `bond_api.discovery.load_provider("moonraker")`
+  imports `moonraker.mission` → `MissionProvider`.
+- **bond-utilities provenance** (not yet converted in moonraker): if the suite
+  later standardises on `bond_utilities.mission_io.record_provenance_outcome`,
+  `mission.py execute()` should delegate its `Provenance` record through it.
+  Acceptance: no signature change to `MissionOutcome`.
+- **bond-coordinator / bond-orchestrator**: consume the provider by slug via
+  `bond_api.discovery` + `MissionRegistry`; moonraker needs no changes.
 
-1. Preserve the strict analysis-to-manuscript variable contract.
-2. Add focused validators for any new generated artifact family.
-3. Expand benchmark scenarios only with deterministic seeds, expected-shape tests, and documented claim boundaries.
-4. Refresh generated docs after any public-surface change.
+## Notes
+
+- `output/` is git-ignored (regenerable); `scripts/run_mission.py` restores a
+  byte-identical tree on re-run (determinism proof).
+- "tech-debt-free" gate: all tracked files free of empty/stub/mock markers.

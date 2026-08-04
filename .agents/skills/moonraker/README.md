@@ -1,3 +1,4 @@
-# moonraker skill
+# moonraker skill — README
 
-> Agent skill for [`moonraker`](../..). Load via an AGENTS.md-aware runtime.
+Project-scoped skill for the moonraker (DRAX) package. See
+[`SKILL.md`](SKILL.md) for when-to-use, quick reference, and pitfalls.

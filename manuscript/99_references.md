@@ -1,10 +1,11 @@
-# References {#sec:references}
+# References
 
-Bibliography lives in [`manuscript/references.bib`](references.bib) and is read by Pandoc during PDF render. The build pipeline invokes Pandoc with `--natbib`, so every `[@key]` citation in the manuscript is rewritten to the appropriate `\cite{}`/`\citep{}`/`\citet{}` LaTeX command and resolved against the bib file.
-
-To validate that `references.bib` is syntactically clean and contains the required fields per entry type:
-
-```bash
-uv run python -m infrastructure.reference.citation.cli validate \
-    projects/working/bond/moonraker/manuscript/references.bib --strict
-```
+1. Kelley, J. E. & Walker, M. R. (1959). Critical-Path Planning and Scheduling.
+   *Proceedings of the Eastern Joint Computer Conference*.
+2. Vallado, D. A. (2013). *Fundamentals of Astrodynamics and Applications* (4th
+   ed.). Microcosm Press. — orbital mechanics of ``orbital_logistics.py``.
+3. Stoll, A. M. (1956). Human Tolerance to Positive G as Limited by the
+   Cardiovascular System. *Aerospace Medicine*, 27(4). — basis for the
+   g-duration tolerance envelope in ``centrifuge.py``.
+4. Wood, J. (1979). *Moonraker* (film). Eon Productions / United Artists. —
+   source concept for the DRAX mission.

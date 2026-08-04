@@ -1,83 +1,47 @@
-# `moonraker` - The Repository Exemplar
+# Manuscript — moonraker (mission DRAX)
 
-This is the stable code exemplar for the Research Project Template: a tested numerical optimization implementation routed through the shared infrastructure, project test suite, and manuscript renderer.
+Repository-wide agent rules: [`../docs/agent_instructions.md`](../docs/agent_instructions.md).
+This file covers manuscript-specific editing: file roles, `{{VARIABLE}}` token
+protocol, and figure references.
 
-It demonstrates the complete research pipeline from algorithm implementation through strict validation to multi-format result visualization.
+## File inventory
 
-## Template Architecture
+| File | Role | Tokens |
+|---|---|---|
+| `00_abstract.md` | Abstract + summary | `BOND_TITLE`, `BOND_SUBTITLE`, `SHUTTLE_*`, `ORBIT_*`, `CENTRIFUGE_*` |
+| `01_introduction.md` | Introduction + reader's guide | `BOND_TITLE`, `CONFIG_*` |
+| `02_methodology.md` | Models (CPM, Kepler, g-profile) | `CONFIG_DEADLINE_MIN`, `CONFIG_RESUPPLY_INTERVAL_DAYS`, `CONFIG_TARGET_G`, `CONFIG_SUSTAIN_S` |
+| `03_results.md` | All results + all three figures | `SHUTTLE_*`, `ORBIT_*`, `CENTRIFUGE_*`, `CONFIG_*` |
+| `04_conclusion.md` | Conclusion | `BOND_TITLE`, `CONFIG_*`, `SHUTTLE_*`, `ORBIT_*`, `CENTRIFUGE_*` |
+| `05_experimental_setup.md` | Parameters + environment | `CONFIG_*`, `PYTHON_VERSION`, `PLATFORM` |
+| `06_reproducibility.md` | Determinism + gate | — |
+| `07_scope_and_related_work.md` | Scope + literature | — |
+| `99_references.md` | Bibliography | — |
+| `config.yaml` | Paper identity + `mission:` parameter block (source of truth) | — |
 
-This project is explicitly designed to showcase the repository's three foundational pillars:
+## Token protocol
 
-1. **`infrastructure/` Layer**: The code delegates tracking, performance benchmarking, stability validation, and PDF rendering to the shared infrastructure packages at the repository root. Current package counts live in [`docs/_generated/COUNTS.md`](../../../../docs/_generated/COUNTS.md).
-2. **`tests/` Integrity**: A zero-mock suite ([`projects/working/bond/moonraker/tests/`](../tests/)) with **≥90%** coverage on `projects/working/bond/moonraker/src/`. Live test count and measured coverage: [`docs/_generated/COUNTS.md`](../../../../docs/_generated/COUNTS.md).
-3. **`docs/` Orchestration**: Project documentation under `projects/working/bond/moonraker/docs/` records the operational patterns and is checked by the repository documentation lint gates.
+Numeric values that come from computation MUST use `{{TOKEN}}` syntax. The
+pipeline:
 
-## Manuscript Structure
+1. `scripts/z_generate_manuscript_variables.py` calls
+   `moonraker.manuscript_variables.generate_variables()`.
+2. It combines `manuscript/config.yaml` with
+   `moonraker/mission_results.compute_mission_results()`.
+3. The script writes `output/data/manuscript_variables.json` and resolves the
+   numbered sections into `output/manuscript/`.
 
-The `manuscript/` directory contains the raw markdown files that the renderer (`infrastructure/rendering/pdf_renderer.py`) transforms into the final academic PDF. These files are designed as a meta-narrative to demonstrate exactly how the repository executes:
+To add a token: add a key in `generate_variables()`, use it in a section, and
+the live cross-reference test (`test_all_manuscript_tokens_are_generated`)
+will enforce that every section token exists.
 
-- `00_abstract.md`: Abstract; build variables and CSV-backed prose via `scripts/z_generate_manuscript_variables.py`.
-- `01_introduction.md`: Introduction of the infrastructure pillars bridging to CI/CD files.
-- `02_methodology.md`: Mathematical methods mapping to specific python script execution lines.
-- `03_results.md`: Convergence analysis built via `infrastructure.reporting`, pointing back at itself.
-- `04_conclusion.md`: Summary of the template automation and publication outputs.
+## Figures
 
-## Architecture
+| Label | File (under `output/figures/`) | Generator |
+|---|---|---|
+| `#fig:timeline` | `timeline_critical_path.png` | `moonraker.figures.render_timeline_figure` |
+| `#fig:orbit` | `orbit_period_windows.png` | `moonraker.figures.render_orbit_figure` |
+| `#fig:centrifuge` | `centrifuge_g_profile.png` | `moonraker.figures.render_centrifuge_figure` |
 
-The project acts as a bridge between custom mathematical logic and the repository's core:
-
-```mermaid
-graph TD
-    classDef infra fill:#f5f5f5,stroke:#333,stroke-width:2px;
-    classDef project fill:#e1f5fe,stroke:#0277bd,stroke-width:2px;
-    classDef docs fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
-
-    subgraph "Project Space (`projects/working/bond/moonraker/`)"
-        Script["scripts/optimization_analysis.py"]:::project
-        Manuscript["manuscript/*.md"]:::project
-    end
-
-    subgraph "Template Ecosystem"
-        Tests["tests/ (see canonical facts)"]:::docs
-        Config["config.yaml & preamble.md"]:::docs
-
-        subgraph "`infrastructure/`"
-            Validation["infrastructure.validation"]:::infra
-            Scientific["infrastructure.scientific"]:::infra
-            Reporting["infrastructure.reporting"]:::infra
-            Rendering["infrastructure.rendering"]:::infra
-        end
-    end
-
-    Script -->|Delegates precision checks| Scientific
-    Script -->|Tested strictly by| Tests
-    Tests -->|Protected by| Validation
-    Script -->|Generates data for| Reporting
-    Reporting -->|Formats| Manuscript
-    Manuscript -->|Compiled with| Config
-    Config -->|Sent to| Rendering
-    Rendering -->|Produces| PDF["output/templates/moonraker/pdf/template_code_project_combined.pdf"]:::project
-```
-
-## Quick Start
-
-Experience the automated pipeline directly:
-
-```bash
-# From repository root
-uv run python projects/working/bond/moonraker/scripts/optimization_analysis.py
-
-uv run python scripts/pipeline/stage_03_render.py --project templates/moonraker
-
-open output/templates/moonraker/pdf/template_code_project_combined.pdf
-```
-
-## AI Agent Directives
-
-If you are an AI agent operating in this repository, you **MUST** read [`AGENTS.md`](AGENTS.md) before executing any code modifications. It defines the zero-mock testing constraints and infrastructure coupling rules.
-
-## See also
-
-- [`SYNTAX.md`](SYNTAX.md) — Pandoc citation / cross-reference conventions for this manuscript.
-- [`../../../docs/guides/manuscript-semantics.md`](../../../../docs/guides/manuscript-semantics.md) — Repository-wide manuscript semantics.
-- [`../../../AGENTS.md`](../../../AGENTS.md#permanent-canonical-exemplars) — public exemplar roster.
+Refer to figures with Pandoc-crossref `[@fig:timeline]` and the markdown image
+syntax `![caption](../output/figures/NAME.png){#fig:label}`.

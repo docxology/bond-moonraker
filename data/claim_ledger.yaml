@@ -1,57 +1,43 @@
 claims:
-  - claim_id: figure-export-dpi
+  - claim_id: timeline-total-min
     kind: number
-    value: 300
-    source: projects/working/bond/moonraker/src/viz_config.py plotting defaults (dpi)
-    source_tier: project_source
-    freshness: active
-    artifact_path: output/figures/convergence_plot.png
-  - claim_id: step-size-sensitivity-cap
-    kind: number
-    value: 500
-    source: projects/working/bond/moonraker/src/sweeps.py sensitivity_sweep max_iter cap
+    value: 57.0
+    source: src/moonraker/shuttle_ops.py compute_timeline(DRAX_HIJACK_TIMELINE)
     source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/step_size_sensitivity.png
-  - claim_id: stability-log-lower
+    artifact_path: output/data/mission_results.json
+  - claim_id: timeline-margin-min
     kind: number
-    value: -6
-    source: projects/working/bond/moonraker/src/figures/scientific_stability.py stability visualization caption
-    source_tier: project_source
+    value: 3.0
+    source: src/moonraker/shuttle_ops.py timeline_feasibility (deadline 60)
+    source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/stability_analysis.png
-  - claim_id: solution-relative-error-exponent
+    artifact_path: output/data/mission_results.json
+  - claim_id: orbit-period-350km
     kind: number
-    value: -4
-    source: projects/working/bond/moonraker/manuscript/03_results.md stated precision threshold
-    source_tier: manuscript_claim
+    value: 5483.6
+    source: src/moonraker/orbital_logistics.py orbital_period(350.0)
+    source_tier: generated_metric
     freshness: active
-    artifact_path: manuscript/03_results.md
-  - claim_id: stability-log-upper
+    artifact_path: output/data/mission_results.json
+  - claim_id: sustainable-crew-6d
     kind: number
-    value: -9
-    source: projects/working/bond/moonraker/src/figures/scientific_stability.py stability visualization caption
-    source_tier: project_source
+    value: 450
+    source: src/moonraker/orbital_logistics.py sustainable_crew(5400, 6.0, 2.0)
+    source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/stability_analysis.png
-  - claim_id: benchmark-tolerance-exponent
+    artifact_path: output/data/mission_results.json
+  - claim_id: centrifuge-peak-g
     kind: number
-    value: -10
-    source: projects/working/bond/moonraker/scripts/optimization_analysis.py dimensional benchmark tolerance
-    source_tier: project_source
+    value: 6.0
+    source: src/moonraker/centrifuge.py build_training_profile target
+    source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/performance_benchmark.png
-  - claim_id: benchmark-min-iterations
+    artifact_path: output/data/mission_results.json
+  - claim_id: centrifuge-rpm-6g-8m
     kind: number
-    value: 219
-    source: projects/working/bond/moonraker/manuscript/03_results.md benchmark caption
-    source_tier: manuscript_claim
+    value: 25.9
+    source: src/moonraker/centrifuge.py rpm_for_g(6.0, 8.0)
+    source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/performance_benchmark.png
-  - claim_id: benchmark-max-iterations
-    kind: number
-    value: 238
-    source: projects/working/bond/moonraker/manuscript/03_results.md benchmark caption
-    source_tier: manuscript_claim
-    freshness: active
-    artifact_path: output/figures/performance_benchmark.png
+    artifact_path: output/data/mission_results.json
