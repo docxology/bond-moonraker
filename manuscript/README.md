@@ -42,6 +42,8 @@ will enforce that every section token exists.
 | `#fig:timeline` | `timeline_critical_path.png` | `moonraker.figures.render_timeline_figure` |
 | `#fig:orbit` | `orbit_period_windows.png` | `moonraker.figures.render_orbit_figure` |
 | `#fig:centrifuge` | `centrifuge_g_profile.png` | `moonraker.figures.render_centrifuge_figure` |
+| `#fig:hohmann` | `hohmann_transfer.png` | `moonraker.figures.render_hohmann_figure` |
+| `#fig:training` | `training_weekly_load.png` | `moonraker.figures.render_training_figure` |
 
 Refer to figures with Pandoc-crossref `[@fig:timeline]` and the markdown image
 syntax `![caption](../output/figures/NAME.png){#fig:label}`.

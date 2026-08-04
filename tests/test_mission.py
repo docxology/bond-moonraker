@@ -23,7 +23,7 @@ class TestProviderSurface:
         brief = PROVIDER.brief()
         assert brief.film == "moonraker"
         assert brief.codename == "DRAX"
-        assert len(brief.objectives) == 3
+        assert len(brief.objectives) == 6
         assert brief.assets
         assert brief.constraints
 
@@ -31,18 +31,28 @@ class TestProviderSurface:
         report = PROVIDER.recon(ReconRequest("assess intercept"))
         assert report.findings
         assert report.findings[0].label == "goal"
+        labels = {f.label for f in report.findings}
+        assert {"transfer", "training", "crash"} <= labels
 
     def test_plan(self) -> None:
         plan = PROVIDER.plan(PROVIDER.brief())
-        assert len(plan.steps) == 3
+        assert len(plan.steps) == 6
         actions = {s.action for s in plan.steps}
-        assert {"critical_path", "launch_windows", "g_profile"} == actions
+        assert {
+            "critical_path",
+            "launch_windows",
+            "g_profile",
+            "hohmann_transfer",
+            "training_cycle",
+            "schedule_crash",
+        } == actions
 
     def test_execute_keys(self) -> None:
         outcome = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief()))
         assert outcome.success is True
-        for key in ("timeline", "orbit", "centrifuge"):
+        for key in ("timeline", "orbit", "centrifuge", "transfer", "training", "crash"):
             assert key in outcome.results
+        assert outcome.results["steps_completed"] == 6
         assert outcome.provenance.seed == 23
         assert outcome.provenance.wall_time_s == 0.0
         assert outcome.provenance.input_hash
@@ -65,7 +75,7 @@ class TestDeterminism:
 
     def test_run_mission_full_flow(self) -> None:
         debrief = run_mission(PROVIDER, ReconRequest("full flow"))
-        assert debrief.outcome.results["steps_completed"] == 3
+        assert debrief.outcome.results["steps_completed"] == 6
         assert debrief.outcome.success is True
 
 
@@ -75,6 +85,11 @@ class TestGadgets:
         assert "compute_timeline" in names
         assert "launch_windows" in names
         assert "build_training_profile" in names
+        assert "hohmann_transfer" in names
+        assert "single_impulse_intercept" in names
+        assert "plan_training_cycle" in names
+        assert "crash_schedule" in names
+        assert len(names) >= 16
 
     def test_gadgets_are_real_and_callable(self) -> None:
         timeline_fn = GADGETS.lookup(FILM, "compute_timeline")

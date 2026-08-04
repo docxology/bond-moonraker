@@ -75,7 +75,7 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
     codename = CODENAME
 
     def brief(self) -> MissionBrief:
-        """Declare the DRAX mission: three concepts, deterministic constraints."""
+        """Declare the DRAX mission: six concepts, deterministic constraints."""
         return MissionBrief(
             film=self.film,
             codename=self.codename,
@@ -83,6 +83,9 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                 "model the shuttle hijack as a critical-path timeline",
                 "solve Drax station orbital logistics",
                 "certify a centrifuge g-force training profile",
+                "size the Hohmann resupply transfer and propellant",
+                "plan the centrifuge training regimen under exposure caps",
+                "crash the hijack timeline to a tighter deadline at minimum cost",
             ),
             assets=(
                 Asset(
@@ -99,6 +102,21 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                     kind="manifest",
                     name="centrifuge",
                     payload={"source": "centrifuge", "radius_m": 8.0},
+                ),
+                Asset(
+                    kind="manifest",
+                    name="transfer",
+                    payload={"source": "orbital_transfer", "park_altitude_km": 200.0},
+                ),
+                Asset(
+                    kind="manifest",
+                    name="training",
+                    payload={"source": "centrifuge_training", "weekly_cap_g_s": 400.0},
+                ),
+                Asset(
+                    kind="manifest",
+                    name="crash",
+                    payload={"source": "schedule_crashing", "deadline_min": 50.0},
                 ),
             ),
             constraints=(
@@ -124,11 +142,17 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
             Finding(
                 label="centrifuge", detail="ramp/sustain/decay profile with tolerance envelope"
             ),
+            Finding(
+                label="transfer",
+                detail="Hohmann transfer, rocket-equation propellant and deorbit burn",
+            ),
+            Finding(label="training", detail="g·s exposure caps and weekly regimen planning"),
+            Finding(label="crash", detail="minimum-cost time-cost crashing of the timeline"),
         ]
         return ReconReport(findings=tuple(findings))
 
     def plan(self, brief: MissionBrief) -> MissionPlan:
-        """Plan the three computation steps the mission must execute."""
+        """Plan the six computation steps the mission must execute."""
         return MissionPlan(
             steps=(
                 Step(
@@ -145,6 +169,30 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                     name="centrifuge",
                     action="g_profile",
                     params={"target_g": 6.0, "radius_m": 8.0, "sustain_s": 12.0},
+                ),
+                Step(
+                    name="rendezvous_transfer",
+                    action="hohmann_transfer",
+                    params={
+                        "park_altitude_km": 200.0,
+                        "station_altitude_km": 350.0,
+                        "transfer_isp_s": 300.0,
+                        "transfer_dry_mass_kg": 2500.0,
+                    },
+                ),
+                Step(
+                    name="training_cycle",
+                    action="training_cycle",
+                    params={
+                        "sessions_per_week": 4,
+                        "daily_cap_g_s": 150.0,
+                        "weekly_cap_g_s": 400.0,
+                    },
+                ),
+                Step(
+                    name="schedule_crash",
+                    action="schedule_crash",
+                    params={"deadline_min": 50.0},
                 ),
             )
         )
@@ -208,6 +256,21 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                     "allowable_s": metrics["allowable_s"],
                     "rpm": _rpm_for(profile.peak_g, 8.0),
                 }
+            elif step.action == "hohmann_transfer":
+                from .mission_results import MISSION_DEFAULTS, compute_transfer
+
+                params = {**MISSION_DEFAULTS, **step.params}
+                results["transfer"] = compute_transfer(params)
+            elif step.action == "training_cycle":
+                from .mission_results import MISSION_DEFAULTS, compute_training
+
+                params = {**MISSION_DEFAULTS, **step.params}
+                results["training"] = compute_training(params)
+            elif step.action == "schedule_crash":
+                from .mission_results import MISSION_DEFAULTS, compute_crash
+
+                params = {**MISSION_DEFAULTS, **step.params}
+                results["crash"] = compute_crash(params)
             results["steps_completed"] += 1
             results["outputs"].append(step.name)
 
@@ -225,13 +288,20 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
     def debrief(self, outcome: MissionOutcome) -> Debrief:
         """Summarize the mission and record the DRAX standing lessons."""
         orbit = outcome.results.get("orbit", {})
+        transfer = outcome.results.get("transfer", {})
+        training = outcome.results.get("training", {})
         return Debrief(
             outcome=outcome,
             lessons=(
                 "a hijack timeline is only as good as its critical path",
                 "station logistics bind crew size, stock and launch cadence",
                 "centrifuge profiles must respect the g-duration tolerance envelope",
+                "resupply propellant follows the rocket equation, not guesswork",
+                "training exposure caps bound the weekly regimen",
+                "a tightened deadline has a minimum crash cost",
                 f"orbit period {orbit.get('period_s', 'n/a')} s — deterministic",
+                f"transfer Δv {transfer.get('total_dv_km_s', 'n/a')} km/s",
+                f"training feasible: {training.get('feasible', 'n/a')}",
             ),
         )
 
@@ -255,7 +325,17 @@ def provider() -> MissionProvider:
 def _register_gadgets() -> None:
     """Register the real domain callables as moonraker gadgets."""
     from .centrifuge import build_training_profile, max_sustained_duration, profile_is_safe
+    from .centrifuge_training import plan_training_cycle, profile_exposure
     from .orbital_logistics import launch_windows, orbital_period, sustainable_crew
+    from .orbital_transfer import (
+        deorbit_dv,
+        hohmann_transfer,
+        phase_wait_time,
+        propellant_mass,
+        tsiolkovsky_mass_ratio,
+    )
+    from .rendezvous import single_impulse_intercept
+    from .schedule_crashing import crash_schedule
     from .shuttle_ops import compute_timeline, timeline_feasibility
 
     GADGETS.register(
@@ -269,6 +349,15 @@ def _register_gadgets() -> None:
             "build_training_profile": build_training_profile,
             "max_sustained_duration": max_sustained_duration,
             "profile_is_safe": profile_is_safe,
+            "hohmann_transfer": hohmann_transfer,
+            "phase_wait_time": phase_wait_time,
+            "tsiolkovsky_mass_ratio": tsiolkovsky_mass_ratio,
+            "propellant_mass": propellant_mass,
+            "deorbit_dv": deorbit_dv,
+            "single_impulse_intercept": single_impulse_intercept,
+            "plan_training_cycle": plan_training_cycle,
+            "profile_exposure": profile_exposure,
+            "crash_schedule": crash_schedule,
         },
     )
 

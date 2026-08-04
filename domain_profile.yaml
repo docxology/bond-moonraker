@@ -19,6 +19,8 @@ figure_types:
   - timeline_critical_path
   - orbit_period_windows
   - centrifuge_g_profile
+  - hohmann_transfer
+  - training_weekly_load
 citation_policy: official_or_scholarly
 source_policy: "Prefer primary project outputs, official orbital-mechanics references, and the frozen BOND-API protocol contract."
 review_gates:
@@ -31,6 +33,8 @@ artifact_expectations:
   - output/figures/timeline_critical_path.png
   - output/figures/orbit_period_windows.png
   - output/figures/centrifuge_g_profile.png
+  - output/figures/hohmann_transfer.png
+  - output/figures/training_weekly_load.png
   - output/manuscript/00_abstract.md
 benchmark_rubric:
   name: drax-mission-readiness
@@ -65,6 +69,8 @@ expected_figures:
   - fig:timeline
   - fig:orbit
   - fig:centrifuge
+  - fig:hohmann
+  - fig:training
 expected_tables:
   - tbl:mission_parameters
 baselines:

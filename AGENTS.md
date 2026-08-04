@@ -23,7 +23,7 @@ BOND-API `MissionProvider` protocol.
 
 | Surface | Rule |
 |---|---|
-| `src/moonraker/shuttle_ops.py`, `orbital_logistics.py`, `centrifuge.py`, `mission_results.py` | Pure domain math — no `bond_api`, no `infrastructure` imports |
+| `src/moonraker/shuttle_ops.py`, `orbital_logistics.py`, `centrifuge.py`, `orbital_transfer.py`, `rendezvous.py`, `centrifuge_training.py`, `schedule_crashing.py`, `mission_results.py` | Pure domain math — no `bond_api`, no `infrastructure` imports |
 | `src/moonraker/mission.py` | Thin adapter to the frozen `bond_api` protocol (imports it) |
 | `src/moonraker/manuscript_variables.py`, `figures.py` | I/O + rendering; `figures` uses matplotlib only |
 | `scripts/` | Thin CLIs (sys.path bootstrap + argv + delegate) |

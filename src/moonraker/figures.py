@@ -16,23 +16,29 @@ RNG) and use the headless ``Agg`` backend.
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
 os.environ.setdefault("MPLBACKEND", "Agg")
 
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.patches import Circle  # noqa: E402
 
 from .centrifuge import max_sustained_duration  # noqa: E402
+from .centrifuge_training import plan_training_cycle  # noqa: E402
 from .orbital_logistics import launch_windows, orbital_period  # noqa: E402
+from .orbital_transfer import hohmann_transfer  # noqa: E402
 from .shuttle_ops import DRAX_HIJACK_TIMELINE, compute_timeline  # noqa: E402
 
 __all__ = [
     "DRAX_STATION_ALTITUDE_KM",
     "figure_output_dir",
     "render_centrifuge_figure",
+    "render_hohmann_figure",
     "render_orbit_figure",
     "render_timeline_figure",
+    "render_training_figure",
 ]
 
 #: The DRAX station's operational altitude (km) used across the figures.
@@ -127,6 +133,101 @@ def render_centrifuge_figure(dest: Path | None = None) -> Path:
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("G-level")
     ax.set_title(f"Centrifuge training profile — peak {profile.peak_g:.1f} g")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    return Path(path)
+
+
+def render_hohmann_figure(dest: Path | None = None) -> Path:
+    """Render the Hohmann transfer geometry (two circular orbits + ellipse)."""
+    from .orbital_logistics import EARTH_RADIUS_KM
+
+    path = dest or (figure_output_dir() / "hohmann_transfer.png")
+    park = 200.0 + EARTH_RADIUS_KM
+    station = DRAX_STATION_ALTITUDE_KM + EARTH_RADIUS_KM
+    transfer = hohmann_transfer(park, station)
+    eccentricity = (station - park) / (station + park)
+
+    fig, ax = plt.subplots(figsize=(6.2, 6.2))
+    earth = Circle((0, 0), EARTH_RADIUS_KM, color="#999999", alpha=0.35)
+    ax.add_patch(earth)
+    for radius, color in (
+        (park, "#0072B2"),
+        (station, "#009E73"),
+    ):
+        circle = Circle((0, 0), radius, fill=False, color=color, linewidth=1.5)
+        ax.add_patch(circle)
+
+    # Transfer ellipse in polar form: r(theta) = a(1-e^2) / (1 + e cos theta).
+    semi_major = transfer.semi_major_km
+    theta = [t / 1000.0 * math.pi for t in range(0, 1001)]
+    radii = [
+        semi_major * (1 - eccentricity * eccentricity) / (1 + eccentricity * math.cos(t))
+        for t in theta
+    ]
+    xs = [r * math.cos(t) for r, t in zip(radii, theta, strict=True)]
+    ys = [r * math.sin(t) for r, t in zip(radii, theta, strict=True)]
+    ax.plot(
+        xs,
+        ys,
+        color="#D55E00",
+        linewidth=2.2,
+        label=f"transfer Δv {transfer.total_dv_km_s:.3f} km/s",
+    )
+
+    ax.set_aspect("equal")
+    ax.set_xlim(-station * 1.15, station * 1.15)
+    ax.set_ylim(-station * 1.15, station * 1.15)
+    ax.set_xlabel("Radial distance (km)")
+    ax.set_ylabel("Radial distance (km)")
+    ax.set_title("Hohmann resupply transfer to the DRAX station")
+    ax.legend(loc="upper right")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    return Path(path)
+
+
+def render_training_figure(dest: Path | None = None) -> Path:
+    """Render the weekly training exposure against the g·s caps."""
+    from .centrifuge import build_training_profile
+    from .centrifuge_training import profile_exposure
+
+    path = dest or (figure_output_dir() / "training_weekly_load.png")
+    profile = build_training_profile(
+        target_g=6.0,
+        radius_m=8.0,
+        sustain_s=12.0,
+        ramp_rate_g_per_s=0.5,
+        decay_rate_g_per_s=1.0,
+    )
+    per_session = profile_exposure(profile)
+    weekly_cap = 400.0
+    counts = list(range(1, 7))
+    exposures = [per_session * c for c in counts]
+    cycle = plan_training_cycle(
+        per_session_g_s=per_session,
+        daily_cap_g_s=150.0,
+        weekly_cap_g_s=weekly_cap,
+        sessions_per_week=4,
+    )
+
+    fig, ax = plt.subplots(figsize=(8, 4.6))
+    ax.bar(counts, exposures, color="#0072B2", edgecolor="black", linewidth=0.6)
+    ax.axhline(
+        weekly_cap, color="#D55E00", linestyle="--", linewidth=1.8, label="weekly cap (400 g·s)"
+    )
+    ax.axvline(cycle.recommended_sessions, color="#009E73", linestyle=":", linewidth=1.5)
+    for i, value in zip(counts, exposures, strict=True):
+        ax.text(i, value + 6, f"{value:.0f}", ha="center", fontsize=8)
+    ax.set_xticks(counts)
+    ax.set_xlabel("Sessions per week")
+    ax.set_ylabel("Weekly +Gz exposure (g·s)")
+    ax.set_title(f"Centrifuge training load — {per_session:.1f} g·s per session")
+    ax.legend(loc="upper left")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(path, dpi=150)

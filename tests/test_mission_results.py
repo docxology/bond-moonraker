@@ -1,5 +1,7 @@
 """Tests for moonraker.mission_results — the canonical result computation."""
 
+import pytest
+
 from moonraker.mission_results import MISSION_DEFAULTS, compute_mission_results
 
 
@@ -23,8 +25,38 @@ class TestComputeMissionResults:
             "CENTRIFUGE_ALLOWABLE_S",
             "CENTRIFUGE_RPM",
             "CENTRIFUGE_SAFE",
+            "TRANSFER_DV1_KMS",
+            "TRANSFER_DV2_KMS",
+            "TRANSFER_TOTAL_DV_KMS",
+            "TRANSFER_TIME_MIN",
+            "TRANSFER_WAIT_H",
+            "TRANSFER_LEAD_DEG",
+            "TRANSFER_MASS_RATIO",
+            "TRANSFER_PROPELLANT_KG",
+            "TRANSFER_DEORBIT_KMS",
+            "RENDEZVOUS_IMPULSE_M_S",
+            "RENDEZVOUS_TIME_S",
+            "TRAINING_PER_SESSION_GS",
+            "TRAINING_WEEKLY_GS",
+            "TRAINING_SESSIONS",
+            "TRAINING_RECOMMENDED",
+            "TRAINING_FEASIBLE",
+            "CRASH_DEADLINE_MIN",
+            "CRASH_FINAL_MIN",
+            "CRASH_SAVED_MIN",
+            "CRASH_TOTAL_COST",
+            "CRASH_FEASIBLE",
+            "CRASH_ACTIVITIES",
         ):
             assert key in results
+
+    def test_deepened_values(self) -> None:
+        results = compute_mission_results()
+        assert results["TRANSFER_TOTAL_DV_KMS"] == pytest.approx(0.0874)
+        assert results["CRASH_FINAL_MIN"] == pytest.approx(50.0)
+        assert results["TRAINING_FEASIBLE"] == "yes"
+        assert results["TRAINING_RECOMMENDED"] == 4
+        assert results["RENDEZVOUS_IMPULSE_M_S"] == pytest.approx(1.875)
 
     def test_defaults_feasible(self) -> None:
         results = compute_mission_results()

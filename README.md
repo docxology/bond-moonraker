@@ -15,8 +15,12 @@ fully-tested scientific package, and implements the frozen **BOND-API**
 | `src/moonraker/shuttle_ops.py` | Space-shuttle hijack timeline | Critical Path Method (CPM) over 8 hijack phases, with feasibility against the shuttle's point of no return |
 | `src/moonraker/orbital_logistics.py` | Drax space-station orbital logistics | Kepler orbit physics (period, speed, orbits/day), ground launch windows, consumables capacity & sustainable crew |
 | `src/moonraker/centrifuge.py` | Centrifuge g-force training profiles | ramp/sustain/decay g-profile with a physiological g-tolerance envelope and safety check |
+| `src/moonraker/orbital_transfer.py` | Resupply orbital transfer | Hohmann transfer (vis-viva), phase-wait, rocket-equation propellant, deorbit burn |
+| `src/moonraker/rendezvous.py` | Final-approach guidance | Clohessy–Wiltshire relative motion + single-impulse intercept |
+| `src/moonraker/centrifuge_training.py` | Training regimen | g·s exposure dosing, GOR tolerance scaling, exposure-capped weekly planning |
+| `src/moonraker/schedule_crashing.py` | Tightened-deadline planning | Minimum-cost time-cost crashing of the CPM timeline |
 
-All three are pure and infrastructure-free (stdlib + `math` only) and fully
+All of these are pure and infrastructure-free (stdlib + `math` only) and fully
 deterministic — no RNG, no wall-clock inputs.
 
 ## Architecture
@@ -26,6 +30,10 @@ src/moonraker/
   shuttle_ops.py           pure CPM hijack timeline
   orbital_logistics.py     pure Kepler / logistics
   centrifuge.py            pure g-profile models
+  orbital_transfer.py      pure Hohmann / rocket equation / deorbit
+  rendezvous.py            pure Clohessy–Wiltshire guidance
+  centrifuge_training.py   pure g·s exposure / regimen planning
+  schedule_crashing.py     pure time-cost crashing
   mission.py               BOND-API MissionProvider adapter + gadget registry
   mission_results.py       canonical deterministic result computation
   manuscript_variables.py  {{TOKEN}} hydration from config + results
@@ -54,11 +62,14 @@ uv run mypy src/ scripts/
 ## Results (injectable, not hand-authored)
 
 - Hijack timeline completes in **57.0 min** against a 60-min deadline
-  (margin 3.0 min).
+  (margin 3.0 min); can be crashed to **50 min** for a cost of **23**.
 - Drax station (350 km) has a ~5484 s period; its stores sustain **450 crew**
   on a 6-day resupply cadence.
+- A Hohmann resupply transfer from 200 km costs **0.087 km/s** over ~45 min,
+  needing ~238 kg of propellant; the Clohessy–Wiltshire approach needs
+  ~1.9 m/s.
 - A **6.0 g** centrifuge profile (~26 rpm on an 8 m arm) is safe against the
-  tolerance envelope.
+  tolerance envelope; at ~97.5 g·s per session the caps admit 4 sessions/week.
 
 ## Mission provider
 

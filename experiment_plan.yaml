@@ -36,3 +36,5 @@ outputs:
   - output/figures/timeline_critical_path.png
   - output/figures/orbit_period_windows.png
   - output/figures/centrifuge_g_profile.png
+  - output/figures/hohmann_transfer.png
+  - output/figures/training_weekly_load.png

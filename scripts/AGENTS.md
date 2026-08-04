@@ -12,7 +12,7 @@ delegate.
 
 - `run_mission.py` — the flagship: runs the five-stage BOND-API mission,
   recomputes `moonraker.mission_results.compute_mission_results()`, writes
-  `output/data/mission_results.json`, and renders the three figures into
+  `output/data/mission_results.json`, and renders the five figures into
   `output/figures/`.
 - `z_generate_manuscript_variables.py` — strict by default; requires
   `output/data/mission_results.json`. `--allow-draft` relaxes it for early

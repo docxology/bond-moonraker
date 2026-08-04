@@ -41,3 +41,38 @@ claims:
     source_tier: generated_metric
     freshness: active
     artifact_path: output/data/mission_results.json
+  - claim_id: transfer-total-dv-kms
+    kind: number
+    value: 0.0874
+    source: src/moonraker/orbital_transfer.py hohmann_transfer(200km -> 350km)
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json
+  - claim_id: transfer-propellant-kg
+    kind: number
+    value: 238.2
+    source: src/moonraker/orbital_transfer.py propellant_mass(Isp 300 s)
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json
+  - claim_id: rendezvous-impulse-ms
+    kind: number
+    value: 1.875
+    source: src/moonraker/rendezvous.py single_impulse_intercept(t=1200 s)
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json
+  - claim_id: training-recommended-sessions
+    kind: number
+    value: 4
+    source: src/moonraker/centrifuge_training.py plan_training_cycle(400 g s wk)
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json
+  - claim_id: crash-cost-50min
+    kind: number
+    value: 23.0
+    source: src/moonraker/schedule_crashing.py crash_schedule(deadline 50)
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json

@@ -38,6 +38,8 @@ def main() -> int:
     figures.render_timeline_figure()
     figures.render_orbit_figure()
     figures.render_centrifuge_figure()
+    figures.render_hohmann_figure()
+    figures.render_training_figure()
 
     print(f"DRAX mission success: {outcomes_stack.outcome.success}")
     print(f"steps: {outcomes_stack.outcome.results.get('steps_completed')}")

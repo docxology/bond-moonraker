@@ -55,3 +55,15 @@ mission:
   decay_rate_g_per_s: 1.0
   g_limit: 9.0
   duration_limit_s: 30.0
+  # Orbital transfer / rendezvous (phase-4 deepening).
+  park_altitude_km: 200.0
+  transfer_isp_s: 300.0
+  transfer_dry_mass_kg: 2500.0
+  deorbit_perigee_km: 100.0
+  rendezvous_intercept_s: 1200.0
+  # Centrifuge training regimen (phase-4 deepening).
+  training_daily_cap_g_s: 150.0
+  training_weekly_cap_g_s: 400.0
+  training_sessions_per_week: 4
+  # Schedule crashing (phase-4 deepening).
+  crash_deadline_min: 50.0

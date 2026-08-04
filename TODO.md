@@ -19,6 +19,19 @@ what is built and any declared integration points.
 - **centrifuge.py** — centrifuge g-force training profiles. `g_from_rpm` /
   `rpm_for_g`, `max_sustained_duration` (g-tolerance envelope),
   `build_training_profile` (ramp/sustain/decay), `profile_is_safe`.
+- **orbital_transfer.py** (phase-4) — Hohmann transfer (`hohmann_transfer`),
+  vis-viva (`vis_viva`), phase-wait rendezvous timing (`phase_wait_time`),
+  rocket equation (`tsiolkovsky_mass_ratio` / `propellant_fraction` /
+  `propellant_mass`) and deorbit burn (`deorbit_dv`).
+- **rendezvous.py** (phase-4) — Clohessy–Wiltshire relative-motion guidance:
+  `cw_state_transition`, `cw_propagate`, and closed-form
+  `single_impulse_intercept` (raises on singular geometry).
+- **centrifuge_training.py** (phase-4) — training regimen: g·s exposure
+  (`exposure_g_seconds` / `profile_exposure`), GOR tolerance scaling
+  (`gor_tolerance_multiplier`), and exposure-capped weekly planning
+  (`max_sessions_for_cap` / `plan_training_cycle`).
+- **schedule_crashing.py** (phase-4) — minimum-cost time-cost crashing of the
+  hijack timeline (`crash_schedule`) with the canonical `DRAX_CRASH_OPTIONS`.
 
 ### Protocol adapter
 
@@ -48,13 +61,14 @@ under `output/`), `z_generate_manuscript_variables.py`.
 ### Tests (`tests/`, zero mocks, deterministic)
 
 `test_shuttle_ops.py`, `test_orbital_logistics.py`, `test_centrifuge.py`,
-`test_mission.py` (protocol + discovery + gadgets), `test_mission_results.py`,
-`test_manuscript_variables.py` (incl. live `{{TOKEN}}` cross-reference),
-`test_figures.py`, `test_scripts_smoke.py`.
+`test_orbital_transfer.py`, `test_rendezvous.py`, `test_centrifuge_training.py`,
+`test_schedule_crashing.py`, `test_mission.py` (protocol + discovery +
+gadgets), `test_mission_results.py`, `test_manuscript_variables.py` (incl. live
+`{{TOKEN}}` cross-reference), `test_figures.py`, `test_scripts_smoke.py`.
 
 ## Gates
 
-- `pytest --cov=src --cov-fail-under=90`: **98 passed, 99.14% line+branch**.
+- `pytest --cov=src --cov-fail-under=90`: **164 passed, 99.20% line+branch**.
 - `ruff check` + `ruff format`: clean.
 - `mypy src/ scripts/`: clean.
 - Lineage `template[_]code_project` in prose: zero.

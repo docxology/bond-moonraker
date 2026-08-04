@@ -44,3 +44,17 @@ class TestRenderCentrifuge:
 
         p = build_training_profile(target_g=6.0, radius_m=8.0, sustain_s=12.0)
         assert isinstance(p, TrainingProfile)
+
+
+class TestRenderHohmann:
+    def test_renders_png(self, tmp_path: Path) -> None:
+        dest = tmp_path / "hohmann.png"
+        path = figures.render_hohmann_figure(dest)
+        _assert_png(path)
+
+
+class TestRenderTraining:
+    def test_renders_png(self, tmp_path: Path) -> None:
+        dest = tmp_path / "training.png"
+        path = figures.render_training_figure(dest)
+        _assert_png(path)
