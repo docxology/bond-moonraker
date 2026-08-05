@@ -2,9 +2,14 @@
 
 Implements the canonical, FROZEN :class:`bond_api.protocol.MissionProvider`
 protocol (see the BOND-API phase-1 contract). The provider is the thin adapter
-between the BOND suite protocol and the pure, infrastructure-free domain core
-in :mod:`moonraker.shuttle_ops`, :mod:`moonraker.orbital_logistics` and
-:mod:`moonraker.centrifuge`.
+between the BOND suite protocol and the pure, infrastructure-free domain core:
+:mod:`moonraker.shuttle_ops` and :mod:`moonraker.schedule_crashing` (the hijack
+timeline), :mod:`moonraker.orbital_logistics`, :mod:`moonraker.orbital_transfer`
+and :mod:`moonraker.rendezvous` (the station and its resupply), and
+:mod:`moonraker.centrifuge` with :mod:`moonraker.centrifuge_training` (the
+g-force programme). The numeric work itself is delegated to the canonical
+factories in :mod:`moonraker.mission_results`, so an outcome and its manuscript
+token can never disagree.
 
 The provider is deterministic: a fixed seed, no wall-clock dependence in its
 provenance (``wall_time_s=0.0``), and an ``input_hash`` that is a stable SHA-256
@@ -45,7 +50,7 @@ CODENAME = "DRAX"
 _PACKAGE_VERSION = "0.2.0"
 _SEED = 23
 
-#: Re-exported alongside the module for the orchestrator's convenienence.
+#: Re-exported alongside the module for the orchestrator's convenience.
 __version__ = _PACKAGE_VERSION
 
 #: Module-level gadget registry (real callables, never mocks).
@@ -201,9 +206,23 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
         """Run the plan over the real domain core and return full provenance.
 
         The computation branch on ``step.action`` runs the matching pure-domain
-        algorithm and accumulates its metrics into ``results``.
+        algorithm and accumulates its metrics into ``results``. Every branch
+        resolves its inputs from :data:`~moonraker.mission_results.MISSION_DEFAULTS`
+        overridden by ``step.params``, so a plan that varies a parameter varies
+        the whole computation rather than only the part that happens to read it.
+
+        Raises:
+            ValueError: when a step names an action this provider cannot run.
+                A silently-skipped step would inflate ``steps_completed`` and
+                report a success that was never computed.
         """
         from .centrifuge import build_training_profile, profile_is_safe
+        from .mission_results import (
+            MISSION_DEFAULTS,
+            compute_crash,
+            compute_training,
+            compute_transfer,
+        )
         from .orbital_logistics import (
             circular_speed,
             consumables_days,
@@ -217,11 +236,10 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
         results: dict[str, Any] = {"steps_completed": 0, "outputs": []}
 
         for step in plan.steps:
+            params: dict[str, Any] = {**MISSION_DEFAULTS, **step.params}
             if step.action == "critical_path":
                 schedule = compute_timeline(DRAX_HIJACK_TIMELINE)
-                feasible, margin = timeline_feasibility(
-                    schedule, float(step.params["deadline_min"])
-                )
+                feasible, margin = timeline_feasibility(schedule, float(params["deadline_min"]))
                 results["timeline"] = {
                     "total_duration_min": schedule.total_duration_min,
                     "critical_path": list(schedule.critical_path),
@@ -229,48 +247,57 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                     "margin_min": margin,
                 }
             elif step.action == "launch_windows":
-                altitude = float(step.params["altitude_km"])
-                windows = launch_windows(altitude, num_windows=int(step.params["num_windows"]))
+                altitude = float(params["altitude_km"])
+                windows = launch_windows(altitude, num_windows=int(params["num_windows"]))
                 period = orbital_period(altitude)
                 results["orbit"] = {
                     "period_s": period,
                     "speed_km_s": circular_speed(altitude),
                     "orbits_per_day": orbits_per_day(altitude),
                     "windows": [(w.open_s, w.close_s) for w in windows],
-                    "consumables_days_6crew": consumables_days(5400.0, 6, 2.0),
-                    "sustainable_crew_6d": sustainable_crew(5400.0, 6.0, 2.0),
+                    "consumables_days_crew": consumables_days(
+                        float(params["capacity_kg"]),
+                        int(params["crew"]),
+                        float(params["rate_kg_per_person_day"]),
+                    ),
+                    "sustainable_crew": sustainable_crew(
+                        float(params["capacity_kg"]),
+                        float(params["resupply_interval_days"]),
+                        float(params["rate_kg_per_person_day"]),
+                    ),
                 }
             elif step.action == "g_profile":
+                radius_m = float(params["radius_m"])
                 profile = build_training_profile(
-                    target_g=float(step.params["target_g"]),
-                    radius_m=float(step.params["radius_m"]),
-                    sustain_s=float(step.params["sustain_s"]),
-                    ramp_rate_g_per_s=0.5,
-                    decay_rate_g_per_s=1.0,
+                    target_g=float(params["target_g"]),
+                    radius_m=radius_m,
+                    sustain_s=float(params["sustain_s"]),
+                    ramp_rate_g_per_s=float(params["ramp_rate_g_per_s"]),
+                    decay_rate_g_per_s=float(params["decay_rate_g_per_s"]),
                 )
-                safe, metrics = profile_is_safe(profile, g_limit=9.0, duration_limit_s=30.0)
+                safe, metrics = profile_is_safe(
+                    profile,
+                    g_limit=float(params["g_limit"]),
+                    duration_limit_s=float(params["duration_limit_s"]),
+                )
                 results["centrifuge"] = {
                     "peak_g": profile.peak_g,
                     "sustain_s": profile.sustain_duration_s,
                     "safe": safe,
                     "allowable_s": metrics["allowable_s"],
-                    "rpm": _rpm_for(profile.peak_g, 8.0),
+                    "rpm": _rpm_for(profile.peak_g, radius_m),
                 }
             elif step.action == "hohmann_transfer":
-                from .mission_results import MISSION_DEFAULTS, compute_transfer
-
-                params = {**MISSION_DEFAULTS, **step.params}
                 results["transfer"] = compute_transfer(params)
             elif step.action == "training_cycle":
-                from .mission_results import MISSION_DEFAULTS, compute_training
-
-                params = {**MISSION_DEFAULTS, **step.params}
                 results["training"] = compute_training(params)
             elif step.action == "schedule_crash":
-                from .mission_results import MISSION_DEFAULTS, compute_crash
-
-                params = {**MISSION_DEFAULTS, **step.params}
                 results["crash"] = compute_crash(params)
+            else:
+                raise ValueError(
+                    f"step {step.name!r} names unknown action {step.action!r}; "
+                    "moonraker cannot execute it"
+                )
             results["steps_completed"] += 1
             results["outputs"].append(step.name)
 

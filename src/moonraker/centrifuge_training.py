@@ -58,12 +58,13 @@ def gor_tolerance_multiplier(
     _require_positive(onset_rate_g_per_s, "onset_rate_g_per_s")
     if not (isinstance(k, (int, float)) and k >= 0):
         raise ValueError(f"k must be >= 0 (got {k!r})")
+    # Validate the ceiling FIRST: the floor check compares against it, so a
+    # non-numeric or non-positive ceiling must be rejected before it is used.
+    _require_positive(ceiling, "ceiling")
     if not (isinstance(floor, (int, float)) and 0.0 < floor <= ceiling):
         raise ValueError(
             f"floor must satisfy 0 < floor <= ceiling (got floor={floor!r}, ceiling={ceiling!r})"
         )
-    if not (isinstance(ceiling, (int, float)) and ceiling >= floor):
-        raise ValueError(f"ceiling must be >= floor (got ceiling={ceiling!r})")
     raw = 1.0 + k / onset_rate_g_per_s
     return float(min(ceiling, max(floor, raw)))
 

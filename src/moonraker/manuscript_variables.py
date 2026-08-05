@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import platform
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -96,6 +95,15 @@ def generate_variables(
         "CONFIG_STATION_ALTITUDE_KM": str(mission["station_altitude_km"]),
         "CONFIG_PARK_ALTITUDE_KM": str(mission["park_altitude_km"]),
         "CONFIG_TRANSFER_ISP_S": str(mission["transfer_isp_s"]),
+        "CONFIG_TRANSFER_DRY_MASS_KG": str(mission["transfer_dry_mass_kg"]),
+        "CONFIG_DEORBIT_PERIGEE_KM": str(mission["deorbit_perigee_km"]),
+        "CONFIG_RENDEZVOUS_INTERCEPT_S": str(mission["rendezvous_intercept_s"]),
+        "CONFIG_CRASH_DEADLINE_MIN": str(mission["crash_deadline_min"]),
+        "CONFIG_G_LIMIT": str(mission["g_limit"]),
+        "CONFIG_DURATION_LIMIT_S": str(mission["duration_limit_s"]),
+        "CONFIG_MARGIN_PCT": str(round(float(mission["centrifuge_margin_fraction"]) * 100.0, 1)),
+        "CONFIG_RAMP_RATE_G_PER_S": str(mission["ramp_rate_g_per_s"]),
+        "CONFIG_DECAY_RATE_G_PER_S": str(mission["decay_rate_g_per_s"]),
         "CONFIG_CREW": str(mission["crew"]),
         "CONFIG_CAPACITY_KG": str(mission["capacity_kg"]),
         "CONFIG_RATE_KG_PERSON_DAY": str(mission["rate_kg_per_person_day"]),
@@ -146,8 +154,3 @@ def write_resolved_manuscript_tree(project_root: Path, variables: dict[str, str]
         out_file = out_dir / section.name
         out_file.write_text(_resolve(section.read_text(encoding="utf-8")), encoding="utf-8")
     return out_dir
-
-
-def _environment_probe() -> str:
-    """Surface Python/sys info for the generated environment token."""
-    return f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"

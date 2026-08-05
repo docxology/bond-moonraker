@@ -4,9 +4,9 @@
 
 paper:
   title: "Moonraker: DRAX — Special-Agent Mission Software"
-  subtitle: "Shuttle Hijack Timelining, Space-Station Orbital Logistics and Centrifuge G-Force Profiles"
+  subtitle: "Critical-Path Hijack Timelining and Crashing, Orbital Logistics and Resupply Rendezvous, and Certification of Centrifuge G-Force Training"
   version: "0.2.0"
-  date: "2026-08-04"
+  date: "2026-08-05"
 
 authors:
   - name: "Daniel Ari Friedman"
@@ -27,11 +27,16 @@ publication:
 keywords:
   - "space-shuttle hijack timeline"
   - "critical path method"
+  - "time-cost schedule crashing"
   - "space-station orbital logistics"
   - "Kepler orbital mechanics"
   - "launch windows"
+  - "Hohmann transfer"
+  - "Tsiolkovsky rocket equation"
+  - "Clohessy-Wiltshire rendezvous"
   - "centrifuge g-force training"
-  - "g-tolerance envelope"
+  - "+Gz tolerance envelope"
+  - "exposure-capped training regimen"
   - "space-station resupply"
   - "reproducible research"
 
@@ -55,6 +60,7 @@ mission:
   decay_rate_g_per_s: 1.0
   g_limit: 9.0
   duration_limit_s: 30.0
+  centrifuge_margin_fraction: 0.2   # reserved fraction of the +Gz tolerance envelope
   # Orbital transfer / rendezvous (phase-4 deepening).
   park_altitude_km: 200.0
   transfer_isp_s: 300.0

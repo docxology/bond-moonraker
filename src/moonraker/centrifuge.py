@@ -167,25 +167,32 @@ def profile_is_safe(
 ) -> tuple[bool, dict[str, float]]:
     """Check a training profile against peak-g and duration tolerance limits.
 
+    Two independent ceilings bound the plateau, and the tighter one governs:
+    the *physiological* ceiling — the tolerance envelope at ``peak_g``, derated
+    by ``margin_fraction`` — and the *procedural* ceiling ``duration_limit_s``,
+    the longest plateau the training protocol permits regardless of tolerance.
+
     Args:
         profile: the training run to assess.
         g_limit: the hard peak-g ceiling the run must stay under.
-        duration_limit_s: the maximum escalator of the plateau.
-        margin_fraction: a safety fraction (0..1) of the duration limit that is
-            reserved, so the run is deemed safe only with headroom remaining.
+        duration_limit_s: the procedural ceiling on the plateau (seconds); the
+            effective allowance is ``min(derated tolerance, duration_limit_s)``.
+        margin_fraction: a safety fraction (0..1) of the tolerance envelope that
+            is reserved, so the run is deemed safe only with headroom remaining.
 
     Returns:
         ``(safe, metrics)`` where ``metrics`` holds ``peak_g``, ``allowable_s``
-        (the tolerance-limit duration at ``peak_g``) and ``xduration_s`` (the
-        sustained duration). ``safe`` is True iff the peak stays under
-        ``g_limit`` and the plateau is no longer than the allowed duration.
+        (the governing allowance at ``peak_g``) and ``sustain_s`` (the sustained
+        duration). ``safe`` is True iff the peak stays at or under ``g_limit``
+        and the plateau is no longer than ``allowable_s``.
     """
     _require_positive(g_limit, "g_limit")
     _require_positive(duration_limit_s, "duration_limit_s")
     if not (0.0 <= margin_fraction < 1.0):
         raise ValueError("margin_fraction must be in [0, 1)")
 
-    allowable_s = max_sustained_duration(profile.peak_g) * (1.0 - margin_fraction)
+    tolerance_s = max_sustained_duration(profile.peak_g) * (1.0 - margin_fraction)
+    allowable_s = min(tolerance_s, float(duration_limit_s))
     peak_ok = profile.peak_g <= g_limit
     duration_ok = profile.sustain_duration_s <= allowable_s
     metrics = {

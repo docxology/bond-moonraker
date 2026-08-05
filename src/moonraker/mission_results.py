@@ -73,6 +73,7 @@ MISSION_DEFAULTS: dict[str, Any] = {
     "decay_rate_g_per_s": 1.0,
     "g_limit": 9.0,
     "duration_limit_s": 30.0,
+    "centrifuge_margin_fraction": 0.2,
     "training_daily_cap_g_s": 150.0,
     "training_weekly_cap_g_s": 400.0,
     "training_sessions_per_week": 4,
@@ -191,8 +192,17 @@ def compute_mission_results(params: dict[str, Any] | None = None) -> dict[str, A
         ramp_rate_g_per_s=float(p["ramp_rate_g_per_s"]),
         decay_rate_g_per_s=float(p["decay_rate_g_per_s"]),
     )
-    safe, metrics = profile_is_safe(profile, float(p["g_limit"]), float(p["duration_limit_s"]))
+    safe, metrics = profile_is_safe(
+        profile,
+        float(p["g_limit"]),
+        float(p["duration_limit_s"]),
+        margin_fraction=float(p["centrifuge_margin_fraction"]),
+    )
     rpm = rpm_for_g(profile.peak_g, float(p["centrifuge_radius_m"]))
+    # Signed plateau exceedance: positive means the plateau overruns the
+    # governing allowance (the profile is NOT certified), negative means
+    # headroom remains. Reported so the prose never has to assert a verdict.
+    exceedance_s = profile.sustain_duration_s - metrics["allowable_s"]
 
     # Deepened concepts (canonical factories).
     transfer = compute_transfer(p)
@@ -217,6 +227,8 @@ def compute_mission_results(params: dict[str, Any] | None = None) -> dict[str, A
         "CENTRIFUGE_ALLOWABLE_S": round(metrics["allowable_s"], 2),
         "CENTRIFUGE_RPM": round(rpm, 1),
         "CENTRIFUGE_SAFE": "yes" if safe else "no",
+        "CENTRIFUGE_VERDICT": "certified" if safe else "not certified",
+        "CENTRIFUGE_EXCEEDANCE_S": round(exceedance_s, 2),
         # Orbital transfer / rendezvous.
         "TRANSFER_DV1_KMS": round(transfer["dv1_km_s"], 4),
         "TRANSFER_DV2_KMS": round(transfer["dv2_km_s"], 4),

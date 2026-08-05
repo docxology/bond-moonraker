@@ -21,8 +21,11 @@ Hohmann resupply transfer costs **{{TRANSFER_TOTAL_DV_KMS}} km/s** over
 **{{TRANSFER_TIME_MIN}} minutes**, needing **{{TRANSFER_PROPELLANT_KG}} kg** of
 propellant; the final Clohessy–Wiltshire approach requires a
 **{{RENDEZVOUS_IMPULSE_M_S}} m/s** impulse. The **{{CENTRIFUGE_PEAK_G}} g**
-training profile is **{{CENTRIFUGE_SAFE}}** and admits
-**{{TRAINING_RECOMMENDED}}** sessions per week under the exposure caps.
+training profile is **{{CENTRIFUGE_VERDICT}}**: its {{CONFIG_SUSTAIN_S}} s
+plateau overruns the **{{CENTRIFUGE_ALLOWABLE_S}} s** tolerance allowance by
+**{{CENTRIFUGE_EXCEEDANCE_S}} s**. At the weekly level the exposure caps still
+admit **{{TRAINING_RECOMMENDED}}** sessions of
+**{{TRAINING_PER_SESSION_GS}} g·s**.
 
 Every result is a closed-form, deterministic computation — no random draws, no
 external calls — enforcing the suite's reproducibility contract. Rendered

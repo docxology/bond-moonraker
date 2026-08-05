@@ -9,13 +9,13 @@ protocol, and figure references.
 | File | Role | Tokens |
 |---|---|---|
 | `00_abstract.md` | Abstract + summary | `BOND_TITLE`, `BOND_SUBTITLE`, `SHUTTLE_*`, `ORBIT_*`, `CENTRIFUGE_*` |
-| `01_introduction.md` | Introduction + reader's guide | `BOND_TITLE`, `CONFIG_*` |
-| `02_methodology.md` | Models (CPM, Kepler, g-profile) | `CONFIG_DEADLINE_MIN`, `CONFIG_RESUPPLY_INTERVAL_DAYS`, `CONFIG_TARGET_G`, `CONFIG_SUSTAIN_S` |
-| `03_results.md` | All results + all three figures | `SHUTTLE_*`, `ORBIT_*`, `CENTRIFUGE_*`, `CONFIG_*` |
-| `04_conclusion.md` | Conclusion | `BOND_TITLE`, `CONFIG_*`, `SHUTTLE_*`, `ORBIT_*`, `CENTRIFUGE_*` |
+| `01_introduction.md` | Introduction: the three concept areas across seven domain modules, plus reader's guide | `BOND_TITLE`, `CONFIG_*` |
+| `02_methodology.md` | Models: CPM + crashing, Kepler + Hohmann + Clohessy–Wiltshire, g-profile + regimen | `CONFIG_*` |
+| `03_results.md` | All results + all five figures | `SHUTTLE_*`, `ORBIT_*`, `TRANSFER_*`, `RENDEZVOUS_*`, `CENTRIFUGE_*`, `TRAINING_*`, `CRASH_*`, `CONFIG_*` |
+| `04_conclusion.md` | Conclusion, incl. the centrifuge negative verdict | `BOND_TITLE`, `CONFIG_*`, `SHUTTLE_*`, `ORBIT_*`, `TRANSFER_*`, `CENTRIFUGE_*`, `TRAINING_*`, `CRASH_*` |
 | `05_experimental_setup.md` | Parameters + environment | `CONFIG_*`, `PYTHON_VERSION`, `PLATFORM` |
-| `06_reproducibility.md` | Determinism + gate | — |
-| `07_scope_and_related_work.md` | Scope + literature | — |
+| `06_reproducibility.md` | Determinism guarantees, re-derivation table, verification gate | — |
+| `07_scope_and_related_work.md` | Explicit non-goals + a model→module→source table | `SHUTTLE_TOTAL_MIN` |
 | `99_references.md` | Bibliography | — |
 | `config.yaml` | Paper identity + `mission:` parameter block (source of truth) | — |
 
@@ -31,9 +31,18 @@ pipeline:
 3. The script writes `output/data/manuscript_variables.json` and resolves the
    numbered sections into `output/manuscript/`.
 
-To add a token: add a key in `generate_variables()`, use it in a section, and
-the live cross-reference test (`test_all_manuscript_tokens_are_generated`)
-will enforce that every section token exists.
+To add a token: add a key in `generate_variables()` (or, for a computed metric,
+in `mission_results.compute_mission_results()`), use it in a section, and the
+live cross-reference test (`test_all_manuscript_tokens_are_generated`) will
+enforce that every section token exists.
+
+Two cautions learned here. **Never write a literal `{{...}}` example inside a
+numbered section** — the cross-reference test reads it as a real token and
+fails; describe it in words instead, as this guide file may not (guide files are
+excluded from resolution). And **check claims against the resolved copies under
+`output/manuscript/`**, not the templates: a sentence can be true about a token
+and false about its value, which is how a "not certified" verdict once sat
+beside the words "comfortably inside the tolerance envelope".
 
 ## Figures
 

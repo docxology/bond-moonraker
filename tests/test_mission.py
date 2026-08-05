@@ -112,3 +112,67 @@ class TestProviderFactory:
         p = provider()
         assert isinstance(p, MissionProvider)
         assert p.film == "moonraker"
+
+
+class TestUnknownAction:
+    def test_unknown_action_raises_instead_of_silently_counting(self) -> None:
+        """An unrunnable step must abort, not inflate ``steps_completed``.
+
+        Silently skipping an unknown action would let the orchestrator read a
+        successful outcome for a computation that never ran.
+        """
+        from bond_api.protocol import MissionPlan, Step
+
+        plan = MissionPlan(steps=(Step(name="bogus", action="teleport", params={}),))
+        with pytest.raises(ValueError, match="unknown action"):
+            PROVIDER.execute(plan)
+
+
+class TestPlanParametersAreHonoured:
+    def test_centrifuge_radius_from_step_params(self) -> None:
+        """The reported RPM must follow the step's arm radius, not a constant.
+
+        A longer arm reaches the same g at a lower RPM; if the branch ignored
+        ``radius_m`` both runs would report an identical figure.
+        """
+        from bond_api.protocol import MissionPlan, Step
+
+        def _rpm(radius_m: float) -> float:
+            plan = MissionPlan(
+                steps=(
+                    Step(
+                        name="centrifuge",
+                        action="g_profile",
+                        params={"target_g": 6.0, "radius_m": radius_m, "sustain_s": 12.0},
+                    ),
+                )
+            )
+            rpm = PROVIDER.execute(plan).results["centrifuge"]["rpm"]
+            assert isinstance(rpm, float)
+            return rpm
+
+        assert _rpm(16.0) < _rpm(8.0)
+
+    def test_orbit_consumables_follow_step_params(self) -> None:
+        """Doubling the delivered capacity must double the sustainable crew."""
+        from bond_api.protocol import MissionPlan, Step
+
+        def _crew(capacity_kg: float) -> int:
+            plan = MissionPlan(
+                steps=(
+                    Step(
+                        name="orbital_windows",
+                        action="launch_windows",
+                        params={
+                            "altitude_km": 350.0,
+                            "num_windows": 6,
+                            "capacity_kg": capacity_kg,
+                        },
+                    ),
+                )
+            )
+            crew = PROVIDER.execute(plan).results["orbit"]["sustainable_crew"]
+            assert isinstance(crew, int)
+            return crew
+
+        assert _crew(10800.0) == 2 * _crew(5400.0)

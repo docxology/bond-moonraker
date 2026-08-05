@@ -123,3 +123,15 @@ class TestTimelineFeasibility:
             timeline_feasibility(schedule, 0.0)
         with pytest.raises(ValueError):
             timeline_feasibility(schedule, -5.0)
+
+
+class TestNonTupleInput:
+    def test_list_of_activities_is_accepted(self) -> None:
+        """``compute_timeline`` normalises any sequence to a tuple before solving."""
+        activities = [
+            TimelineActivity("a", 5.0),
+            TimelineActivity("b", 3.0, ("a",)),
+        ]
+        schedule = compute_timeline(activities)  # type: ignore[arg-type]
+        assert schedule.total_duration_min == pytest.approx(8.0)
+        assert schedule.critical_path == ("a", "b")

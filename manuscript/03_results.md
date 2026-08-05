@@ -50,10 +50,24 @@ corrective impulse over **{{RENDEZVOUS_TIME_S}} s**.
 ## Centrifuge g-force profile and training regimen
 
 A **{{CENTRIFUGE_PEAK_G}} g** run on an {{CONFIG_CENTRIFUGE_RADIUS_M}} m arm
-demands about **{{CENTRIFUGE_RPM}} rpm**. Holding the
-{{CONFIG_SUSTAIN_S}} s plateau is **{{CENTRIFUGE_SAFE}}** given an allowable
-sustained duration of **{{CENTRIFUGE_ALLOWABLE_S}} s** at peak g — comfortably
-inside the tolerance envelope. Each session accumulates
+demands about **{{CENTRIFUGE_RPM}} rpm**. The governing allowance at that peak
+is **{{CENTRIFUGE_ALLOWABLE_S}} s** — the +Gz tolerance envelope derated by the
+{{CONFIG_MARGIN_PCT}}% safety margin, which here is tighter than the
+{{CONFIG_DURATION_LIMIT_S}} s procedural ceiling. The DRAX profile's
+{{CONFIG_SUSTAIN_S}} s plateau therefore overruns the allowance by
+**{{CENTRIFUGE_EXCEEDANCE_S}} s**, and the run is **{{CENTRIFUGE_VERDICT}}**
+(``CENTRIFUGE_SAFE = {{CENTRIFUGE_SAFE}}``).
+
+This is a substantive negative result, not a modelling artefact: the shooting
+script's training sequence is *outside* the survivable envelope this package
+computes, and the model reports so rather than being tuned until it agrees.
+The remediation the model implies is direct — hold the plateau at or below
+{{CENTRIFUGE_ALLOWABLE_S}} s at {{CENTRIFUGE_PEAK_G}} g, or lower the peak so
+the envelope widens. `tests/test_mission_results.py` pins both the failing
+verdict and its flip under a shortened plateau, so this paragraph cannot drift
+away from the computation.
+
+Each session accumulates
 **{{TRAINING_PER_SESSION_GS}} g·s** of exposure; under the
 {{CONFIG_TRAINING_DAILY_CAP_GS}} g·s daily and
 {{CONFIG_TRAINING_WEEKLY_CAP_GS}} g·s weekly caps, the

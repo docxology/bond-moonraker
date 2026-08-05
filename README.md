@@ -1,82 +1,119 @@
 # Moonraker: DRAX — Special-Agent Mission Software
 
 A `PROJECT BOND` suite package (film: **Moonraker**, 1979 · mission codename
-**DRAX**). It models three concepts from the DRAX mission as a deterministic,
-fully-tested scientific package, and implements the frozen **BOND-API**
-`MissionProvider` protocol.
+**DRAX**). It implements the technical concepts of the DRAX operation as a
+deterministic, fully-tested scientific package, and exposes them through the
+frozen **BOND-API** `MissionProvider` protocol.
 
 **Local-only working tree.** This package lives in
 `projects/working/bond/moonraker/` and never pushes to a remote.
 
-## Concepts
+## The film, as a specification
 
-| Module | Concept | Model |
-|---|---|---|
-| `src/moonraker/shuttle_ops.py` | Space-shuttle hijack timeline | Critical Path Method (CPM) over 8 hijack phases, with feasibility against the shuttle's point of no return |
-| `src/moonraker/orbital_logistics.py` | Drax space-station orbital logistics | Kepler orbit physics (period, speed, orbits/day), ground launch windows, consumables capacity & sustainable crew |
-| `src/moonraker/centrifuge.py` | Centrifuge g-force training profiles | ramp/sustain/decay g-profile with a physiological g-tolerance envelope and safety check |
-| `src/moonraker/orbital_transfer.py` | Resupply orbital transfer | Hohmann transfer (vis-viva), phase-wait, rocket-equation propellant, deorbit burn |
-| `src/moonraker/rendezvous.py` | Final-approach guidance | Clohessy–Wiltshire relative motion + single-impulse intercept |
-| `src/moonraker/centrifuge_training.py` | Training regimen | g·s exposure dosing, GOR tolerance scaling, exposure-capped weekly planning |
-| `src/moonraker/schedule_crashing.py` | Tightened-deadline planning | Minimum-cost time-cost crashing of the CPM timeline |
+*Moonraker* has three technical spines. Each becomes a concept area here, and
+each concept area is carried by pure, independently testable modules.
 
-All of these are pure and infrastructure-free (stdlib + `math` only) and fully
-deterministic — no RNG, no wall-clock inputs.
+| Film concept | What it becomes |
+|---|---|
+| A space shuttle hijacked against a launch deadline | A critical-path activity network, plus the time-cost economics of compressing it when the window closes early |
+| Drax's orbital station, resupplied from the ground | Kepler orbit physics, ground launch windows, consumables capacity, a Hohmann resupply transfer with a propellant budget, and a Clohessy–Wiltshire final approach |
+| The centrifuge chamber Bond is put through at Drax's facility | A ramp/sustain/decay g-profile adjudicated against a +Gz tolerance envelope, and a weekly regimen bounded by exposure caps |
 
-## Architecture
+The package is concept-faithful, not cosmetic: the models are real physics and
+real scheduling mathematics, and they are allowed to disagree with the film. The
+centrifuge certification does exactly that — see *Results*, below.
+
+## Modules
+
+Every module in `src/moonraker/`, one line each.
+
+| Module | What it computes |
+|---|---|
+| `shuttle_ops.py` | Critical Path Method over the hijack activity network — forward/backward pass, slack, critical path, cycle and dangling-dependency rejection, and feasibility against the point of no return |
+| `schedule_crashing.py` | Minimum-cost time-cost crashing: re-solve the CPM, buy down the cheapest critical activity a minute at a time, report cost, minutes bought, and whether the deadline is reachable at all |
+| `orbital_logistics.py` | Kepler period and circular speed, orbits per sidereal day, horizon/pass geometry, the deterministic ground launch-window series, and the consumables ↔ crew ↔ cadence model |
+| `orbital_transfer.py` | Vis-viva, the Hohmann two-burn transfer and its time, the phase wait to the lead angle, the Tsiolkovsky mass ratio and propellant mass, and the deorbit burn |
+| `rendezvous.py` | Clohessy–Wiltshire relative motion in the LVLH frame: the 6×6 state transition, propagation, and the closed-form single-impulse intercept (raising at singular geometries) |
+| `centrifuge.py` | g↔rpm centripetal physics, the +Gz tolerance envelope, the ramp/sustain/decay profile builder, and the two-ceiling safety adjudication |
+| `centrifuge_training.py` | g·s exposure dosing, gradual-onset-rate tolerance scaling, and weekly session planning under daily and cumulative caps |
+| `mission_results.py` | The single canonical computation — mission parameters in, the flat token-keyed result set out. Everything downstream reads this |
+| `mission.py` | The BOND-API `MissionProvider` adapter and the module-level `GADGETS` registry |
+| `manuscript_variables.py` | Token-map hydration from `config.yaml` + results, and resolution of the manuscript tree into `output/manuscript/` |
+| `figures.py` | Five deterministic matplotlib figures under the headless `Agg` backend |
+
+The first seven are the pure domain core: stdlib only, no `bond_api`, no
+`infrastructure`, no RNG, no wall-clock. They import and compute in isolation.
+
+## Layout
 
 ```
-src/moonraker/
-  shuttle_ops.py           pure CPM hijack timeline
-  orbital_logistics.py     pure Kepler / logistics
-  centrifuge.py            pure g-profile models
-  orbital_transfer.py      pure Hohmann / rocket equation / deorbit
-  rendezvous.py            pure Clohessy–Wiltshire guidance
-  centrifuge_training.py   pure g·s exposure / regimen planning
-  schedule_crashing.py     pure time-cost crashing
-  mission.py               BOND-API MissionProvider adapter + gadget registry
-  mission_results.py       canonical deterministic result computation
-  manuscript_variables.py  {{TOKEN}} hydration from config + results
-  figures.py               deterministic matplotlib figure generators
-scripts/                   one thin CLI per mission phase + runner
-tests/                     per-module + protocol + smoke tests (zero mocks)
-manuscript/                config.yaml + tokenised DRAX sections
+src/moonraker/     seven pure domain modules + composition, adapter, presentation
+scripts/           one thin CLI per mission phase, plus the flagship runner
+tests/             per-module + protocol + smoke tests (zero mocks)
+manuscript/        config.yaml, references.bib, tokenised DRAX sections
+docs/              architecture, agent instructions, testing philosophy
+output/            regenerable artifacts (git-ignored, never hand-edited)
 ```
 
-`mission.py` is the thin adapter to the frozen protocol in `bond-api`; the
-domain modules never import it (so they stay importable in isolation).
+`mission.py` is the only module coupled to `bond-api`; see
+`docs/architecture.md` for the full layer contract.
 
 ## Quick start
 
 ```bash
-uv sync --extra dev            # install deps + bond-api path dependency
-uv run python scripts/run_mission.py          # full flow + artifacts
-uv run python scripts/brief.py                # ... per-phase CLIs
-uv run python scripts/z_generate_manuscript_variables.py  # hydrate tokens
+uv sync --extra dev                                       # deps + bond-api path dependency
 
-uv run pytest tests/ --cov=src --cov-fail-under=90   # gate (>=90%)
+uv run python scripts/run_mission.py                      # full flow + all artifacts
+uv run python scripts/brief.py                            # ... or one phase at a time
+uv run python scripts/z_generate_manuscript_variables.py  # hydrate + resolve tokens
+
+uv run pytest tests/ --cov=src --cov-fail-under=90        # the gate (>=90% line+branch)
 uv run ruff check src/ scripts/ tests/
+uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
 ```
 
-## Results (injectable, not hand-authored)
+Measured test count and coverage live in `docs/_generated/COUNTS.md`, regenerated
+from the gate. This README deliberately does not restate them — a figure typed
+into prose is stale from the next commit onward.
 
-- Hijack timeline completes in **57.0 min** against a 60-min deadline
-  (margin 3.0 min); can be crashed to **50 min** for a cost of **23**.
-- Drax station (350 km) has a ~5484 s period; its stores sustain **450 crew**
-  on a 6-day resupply cadence.
-- A Hohmann resupply transfer from 200 km costs **0.087 km/s** over ~45 min,
-  needing ~238 kg of propellant; the Clohessy–Wiltshire approach needs
-  ~1.9 m/s.
-- A **6.0 g** centrifuge profile (~26 rpm on an 8 m arm) is safe against the
-  tolerance envelope; at ~97.5 g·s per session the caps admit 4 sessions/week.
+## Results
+
+Every published number is computed, never typed. After
+`scripts/run_mission.py`, read them at:
+
+- `output/data/mission_results.json` — the canonical result set
+- `output/data/manuscript_variables.json` — the same values as manuscript tokens
+- `output/manuscript/03_results.md` — the results section with tokens resolved
+- `output/figures/*.png` — five figures
+
+Qualitatively, the mission finds: the hijack timeline is feasible inside its
+point of no return and can be crashed to a tighter deadline at a computable
+minimum cost; the station's stores and cadence bound a specific sustainable
+crew, reachable by a Hohmann transfer whose Δv and propellant the model sizes;
+and — the one negative verdict — **the canonical 6 g centrifuge profile is not
+certified**, because its plateau overruns the tolerance allowance at that peak.
+The manuscript reports the exceedance and the plateau length that would pass.
+That result is pinned by `tests/test_mission_results.py` in both directions, so
+it cannot silently flip or be quietly written around.
 
 ## Mission provider
 
-`src/moonraker/mission.py` exposes `MissionProvider` at module top level
-(slug `moonraker`, codename `DRAX`), implements the five lifecycle stages
-(`brief`/`recon`/`plan`/`execute`/`debrief`), and registers its domain
-functions as gadgets with the BOND-API `GadgetRegistry`.
+`src/moonraker/mission.py` exposes, at module top level, the frozen surface the
+rest of the suite consumes: `MissionProvider` (slug `moonraker`, codename
+`DRAX`), the `PROVIDER` singleton, the `provider()` factory, the `GADGETS`
+registry, and `FILM` / `CODENAME`.
+
+It implements all five lifecycle stages — `brief` → `recon` → `plan` →
+`execute` → `debrief` — deterministically: no state, a fixed seed,
+`wall_time_s = 0.0`, and a stable SHA-256 `input_hash` over the serialized plan.
+Its domain callables are registered as gadgets with the BOND-API
+`GadgetRegistry`, and the package is discoverable by slug through
+`bond_api.discovery.load_provider("moonraker")`.
+
+This surface is **frozen**: `bond-cli`, the coordinator and the orchestrator
+consume it across packages. Deepen inside the package; do not rename or reshape
+the seam.
 
 ## License
 

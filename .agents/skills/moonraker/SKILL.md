@@ -35,17 +35,31 @@ uv run mypy src/ scripts/
 
 ## Concepts
 
-- `src/moonraker/shuttle_ops.py` — CPM shuttle-hijack timeline.
-- `src/moonraker/orbital_logistics.py` — Kepler orbit + station logistics.
-- `src/moonraker/centrifuge.py` — g-force profile + tolerance envelope.
-- `src/moonraker/mission.py` — BOND-API `MissionProvider` (slug `moonraker`,
-  codename `DRAX`) + gadget registry.
+Seven pure domain modules under `src/moonraker/`:
+
+- `shuttle_ops.py` — CPM shuttle-hijack timeline.
+- `schedule_crashing.py` — minimum-cost time-cost crashing of that timeline.
+- `orbital_logistics.py` — Kepler orbit, launch windows, station stores.
+- `orbital_transfer.py` — Hohmann transfer, rocket equation, deorbit burn.
+- `rendezvous.py` — Clohessy–Wiltshire relative-motion guidance.
+- `centrifuge.py` — g-force profile + two-ceiling safety adjudication.
+- `centrifuge_training.py` — g·s exposure dosing + weekly regimen planning.
+
+Above them: `mission_results.py` (the single canonical computation),
+`manuscript_variables.py`, `figures.py`, and `mission.py` — the BOND-API
+`MissionProvider` (slug `moonraker`, codename `DRAX`) + gadget registry.
 
 ## Pitfalls
 
-- **Pure domain core.** `shuttle_ops/orbital_logistics/centrifuge/mission_results`
-  must not import `bond_api` or `infrastructure`; only `mission.py` imports
-  `bond_api`.
+- **Pure domain core.** All seven domain modules plus `mission_results` must not
+  import `bond_api` or `infrastructure`; only `mission.py` imports `bond_api`.
+- **Frozen protocol surface.** Do not rename or reshape `brief`/`recon`/`plan`/
+  `execute`/`debrief` or the module-level `MissionProvider`/`PROVIDER`/
+  `provider`/`GADGETS`/`FILM`/`CODENAME` exports — the CLI, coordinator and
+  orchestrator consume them across packages. Deepen inside.
+- **Never hand-author a metric.** Numbers reach the manuscript as tokens from
+  `mission_results` + `config.yaml`. Check claims against the resolved copies in
+  `output/manuscript/`, not the templates.
 - **No mocks.** All tests use real computation; deterministic fakes implement
   the REAL protocol.
 - **Deterministic.** No untracked RNG, no wall-clock in persisted artifacts
@@ -58,5 +72,8 @@ uv run mypy src/ scripts/
 ## Cross-refs
 
 - Contract: [`AGENTS.md`](../../../AGENTS.md) · README [`README.md`](../../../README.md)
+- Architecture: [`docs/architecture.md`](../../../docs/architecture.md) ·
+  Agent rules: [`docs/agent_instructions.md`](../../../docs/agent_instructions.md) ·
+  Testing: [`docs/testing_philosophy.md`](../../../docs/testing_philosophy.md)
 - TODO: [`TODO.md`](../../../TODO.md)
 - BOND suite skill: `bond-suite-package-development` (+ `references/bond-api-phase1.md`)

@@ -13,8 +13,14 @@ The hijack plan is **{{SHUTTLE_FEASIBLE}}** inside its
 {{CONFIG_DEADLINE_MIN}}-minute deadline and can be crashed to
 **{{CRASH_DEADLINE_MIN}} minutes** for **{{CRASH_TOTAL_COST}}**; the station's
 logistics sustain **{{ORBIT_SUSTAINABLE_CREW}} crew** with a
-**{{TRANSFER_TOTAL_DV_KMS}} km/s** resupply transfer; and the
-**{{CENTRIFUGE_PEAK_G}} g** training profile is **{{CENTRIFUGE_SAFE}}** with a
-**{{TRAINING_RECOMMENDED}}-session** weekly regimen. Every figure and every
-number in this manuscript is regenerated from source — nothing is hand-written
-— which is the reproducibility contract the BOND suite demands.
+**{{TRANSFER_TOTAL_DV_KMS}} km/s** resupply transfer; and the weekly regimen
+admits **{{TRAINING_RECOMMENDED}}** sessions under the exposure caps.
+
+The one negative verdict is the load-bearing one. The
+**{{CENTRIFUGE_PEAK_G}} g** profile is **{{CENTRIFUGE_VERDICT}}**: its
+{{CONFIG_SUSTAIN_S}} s plateau exceeds the **{{CENTRIFUGE_ALLOWABLE_S}} s**
+allowance by **{{CENTRIFUGE_EXCEEDANCE_S}} s**. A model that only ever agrees
+with its source material is not a model, and the value of injecting every
+number is precisely that a result can come back unwelcome. Every figure and
+every number in this manuscript is regenerated from source — nothing is
+hand-written — which is the reproducibility contract the BOND suite demands.

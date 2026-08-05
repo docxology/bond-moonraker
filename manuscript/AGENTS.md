@@ -13,7 +13,9 @@ Agent rules for this directory. Repository-wide rules:
 
 | File | Role |
 |---|---|
-| `00_abstract.md` … `09_*` | Tokenised prose sections (results injected) |
+| `00_abstract.md` … `07_scope_and_related_work.md`, `99_references.md` | Tokenised prose sections (results injected) |
+| `preamble.md` | Rendering preamble |
+| `README.md` | Manuscript-specific editing guide: file inventory, token protocol, figure table |
 | `config.yaml` | Identity + the `mission:` parameter block (source of truth) |
 | `config.yaml.example` | Reference copy of the config schema |
 | `references.bib` | BibTeX bibliography |
@@ -31,6 +33,15 @@ and the gate enforces consistency.
 
 ## Figure protocol
 
-All three figures (timeline, orbit, centrifuge) are produced by
-`src/moonraker/figures.py` into `output/figures/` and referenced via Pandoc-
-crossref — never hardcoded numbers or raw `\ref{}`. See `SYNTAX.md`.
+All five figures — timeline critical path, orbit period + launch windows,
+centrifuge g-profile, Hohmann transfer geometry, and weekly training load — are
+produced by `src/moonraker/figures.py` into `output/figures/` and referenced via
+Pandoc-crossref, never hardcoded numbers or raw `\ref{}`. See `SYNTAX.md` and
+the figure table in `README.md`.
+
+## Honesty rule
+
+Report what the model computes. Where a result contradicts the film or an
+earlier draft — as the centrifuge certification verdict does — the prose
+changes, not the model. Verdicts the prose leans on are pinned by tests in
+`tests/test_mission_results.py` so they cannot silently invert.

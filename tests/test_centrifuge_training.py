@@ -140,3 +140,26 @@ class TestTrainingCycle:
             TrainingCycle(-1, 97.5, -97.5, 150.0, 400.0, 4, True)
         with pytest.raises(ValueError):
             TrainingCycle(4, -1.0, 0.0, 150.0, 400.0, 4, True)
+
+
+class TestValidationEdges:
+    def test_bad_ceiling_is_rejected_before_use(self) -> None:
+        """A non-numeric or non-positive ceiling must raise ValueError, not TypeError.
+
+        The ceiling is compared against in the floor check, so it has to be
+        validated first; otherwise a string ceiling escapes as a TypeError.
+        """
+        with pytest.raises(ValueError):
+            gor_tolerance_multiplier(0.5, ceiling=0.0)
+        with pytest.raises(ValueError):
+            gor_tolerance_multiplier(0.5, ceiling="high")  # type: ignore[arg-type]
+        with pytest.raises(ValueError):
+            gor_tolerance_multiplier(0.5, floor=3.0, ceiling=2.0)
+
+    def test_non_increasing_time_samples_rejected(self) -> None:
+        """A hand-built profile whose samples do not advance has no dt to dose."""
+        stalled = TrainingProfile(
+            time_s=(0.0, 0.0), g_levels=(1.0, 2.0), peak_g=2.0, sustain_duration_s=0.0
+        )
+        with pytest.raises(ValueError, match="strictly increasing"):
+            profile_exposure(stalled)

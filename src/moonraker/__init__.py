@@ -1,19 +1,37 @@
 """moonraker — DRAX special-agent mission software (film: Moonraker, 1979).
 
-The package models three concepts from the DRAX mission:
+Seven pure-domain modules model the three DRAX concept areas.
 
-* :mod:`moonraker.shuttle_ops` — a space-shuttle hijack as a critical-path
-  timeline (CPM) with feasibility against a hard deadline.
-* :mod:`moonraker.orbital_logistics` — Drax's space-station orbital logistics:
-  Kepler orbit physics, ground launch windows, and consumables capacity.
-* :mod:`moonraker.centrifuge` — centrifuge g-force training profiles with a
-  physiological tolerance envelope and safety checks.
+*The shuttle hijack*
 
-These three modules are the pure domain core: they are infrastructure-free
-(no ``bond_api``, no ``infrastructure``) and deterministic, so they can be
-imported and tested in isolation. The BOND-API mission adapter lives in
-:mod:`moonraker.mission` and is imported separately so the core stays
-importable without the protocol.
+* :mod:`moonraker.shuttle_ops` — the hijack as a critical-path (CPM) activity
+  network with feasibility against the shuttle's point of no return.
+* :mod:`moonraker.schedule_crashing` — minimum-cost time-cost crashing of that
+  network when the deadline tightens.
+
+*The station and its resupply*
+
+* :mod:`moonraker.orbital_logistics` — Kepler orbit physics, ground launch
+  windows, pass geometry, and the consumables/crew capacity model.
+* :mod:`moonraker.orbital_transfer` — Hohmann transfer, phase-wait timing, the
+  Tsiolkovsky propellant budget, and the deorbit burn.
+* :mod:`moonraker.rendezvous` — Clohessy–Wiltshire relative motion and the
+  closed-form single-impulse intercept for the final approach.
+
+*The g-force programme*
+
+* :mod:`moonraker.centrifuge` — centrifuge g↔rpm physics, the +Gz tolerance
+  envelope, the ramp/sustain/decay profile builder, and the safety verdict.
+* :mod:`moonraker.centrifuge_training` — g·s exposure dosing, gradual-onset-rate
+  tolerance scaling, and exposure-capped weekly regimen planning.
+
+All seven are the pure domain core: infrastructure-free (no ``bond_api``, no
+``infrastructure``) and deterministic, so they can be imported and tested in
+isolation. :mod:`moonraker.mission_results` composes them into the single
+canonical result set; :mod:`moonraker.manuscript_variables` turns that into the
+manuscript ``{{TOKEN}}`` map and :mod:`moonraker.figures` into the PNGs. The
+BOND-API mission adapter lives in :mod:`moonraker.mission` and is imported
+separately so the core stays importable without the protocol.
 """
 
 from __future__ import annotations

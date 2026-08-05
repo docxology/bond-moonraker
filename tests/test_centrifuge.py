@@ -143,6 +143,39 @@ class TestProfileIsSafe:
         assert safe is False
         assert metrics["allowable_s"] < metrics["sustain_s"]
 
+    def test_procedural_duration_limit_binds(self) -> None:
+        """``duration_limit_s`` must be able to fail a physiologically-fine run.
+
+        At 1 g the tolerance envelope saturates at its 60 s ceiling (48 s after
+        the 20% margin), so a 10 s plateau clears physiology outright. Only the
+        procedural ceiling can reject it: with a 5 s limit the run is refused,
+        with a 30 s limit it passes. Both allowances equal the procedural limit,
+        proving it — not the envelope — governs here.
+        """
+        profile = build_training_profile(target_g=1.0, radius_m=8.0, sustain_s=10.0)
+        tight, tight_metrics = profile_is_safe(profile, g_limit=9.0, duration_limit_s=5.0)
+        assert tight is False
+        assert tight_metrics["allowable_s"] == pytest.approx(5.0)
+
+        loose, loose_metrics = profile_is_safe(profile, g_limit=9.0, duration_limit_s=30.0)
+        assert loose is True
+        assert loose_metrics["allowable_s"] == pytest.approx(30.0)
+
+    def test_canonical_drax_profile_is_not_certified(self) -> None:
+        """The shipped 6 g / 12 s DRAX profile overruns its tolerance allowance.
+
+        Pinned deliberately: the manuscript reports this verdict through a
+        token, and a silent flip (either direction) must break a test rather
+        than quietly contradict the prose.
+        """
+        profile = build_training_profile(
+            target_g=6.0, radius_m=8.0, sustain_s=12.0, ramp_rate_g_per_s=0.5
+        )
+        safe, metrics = profile_is_safe(profile, g_limit=9.0, duration_limit_s=30.0)
+        assert safe is False
+        assert metrics["allowable_s"] == pytest.approx(7.26, abs=0.01)
+        assert metrics["sustain_s"] == pytest.approx(12.0)
+
     def test_validation(self) -> None:
         profile = build_training_profile(target_g=6.0, radius_m=8.0, sustain_s=2.0)
         with pytest.raises(ValueError):

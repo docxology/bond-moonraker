@@ -93,8 +93,9 @@ def _validate_network(activities: tuple[TimelineActivity, ...]) -> None:
                 raise ValueError(f"activity {activity.name!r} depends on unknown activity {dep!r}")
 
     # Kahn-style cycle detection: repeatedly strip zero-dependency activities.
+    # If a round finds nothing ready while activities remain, the residue is a
+    # cycle (every remaining activity still waits on another remaining one).
     pending = {a.name: set(a.depends_on) for a in activities}
-    remaining = list(names)
     while pending:
         ready = [name for name, deps in pending.items() if not deps]
         if not ready:
@@ -103,7 +104,6 @@ def _validate_network(activities: tuple[TimelineActivity, ...]) -> None:
             del pending[name]
             for deps in pending.values():
                 deps.discard(name)
-        remaining = [n for n in remaining if n in pending]
 
 
 def compute_timeline(activities: tuple[TimelineActivity, ...]) -> TimelineSchedule:
