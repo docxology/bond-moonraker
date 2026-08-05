@@ -1,129 +1,260 @@
 # TODO — moonraker (mission DRAX)
 
-Remaining work only. What is already built is described in `README.md` (module
-table), `docs/architecture.md` (per-module detail) and the manuscript — this file
-does not duplicate them.
+`moonraker` is the `PROJECT BOND` suite package for *Moonraker* (1979, mission
+codename **DRAX**). Seven pure stdlib domain modules (CPM scheduling, time-cost
+crashing, Kepler logistics, Hohmann transfer, Clohessy–Wiltshire rendezvous,
++Gz centrifuge adjudication, exposure-capped training) are composed by one
+canonical computation (`mission_results.py`) that feeds the manuscript tokens,
+the figures and the frozen BOND-API `MissionProvider` adapter. Measured on
+2026-08-05 by `uv run pytest tests/ --cov=src --cov-fail-under=90`: **241 tests
+passing, 0 failed, 0 skipped, 99.92% line+branch coverage on `src/`** (every
+module at 100.00% except `manuscript_variables.py` at 98.36%). `ruff check`,
+`ruff format --check` and `mypy src/ scripts/` are clean; zero mocks in
+`tests/`. What is already built is described in `README.md`,
+`docs/architecture.md` and the manuscript — this file does not duplicate them.
 
-## Open
+## Open work
 
-### Domain
+### Correctness
 
-- [ ] **Multi-burn rendezvous.** `single_impulse_intercept` raises at the
-  geometric singularities (whole-period intercept times, in-plane degeneracies)
-  because no single impulse exists there. A two-burn Lambert-style solver would
-  return an answer instead of an exception. Acceptance: the singular cases in
-  `tests/test_rendezvous.py` gain a companion assertion that the multi-burn path
-  returns a finite, verified Δv.
-- [ ] **Stochastic activity durations.** The hijack network is deterministic
-  CPM, so `SHUTTLE_TOTAL_MIN` has no confidence interval. A PERT three-point
-  estimate per activity would give one. Acceptance: a new token reporting the
-  interval, with the deterministic total unchanged as the mean case.
-- [ ] **Orbit decay.** `orbital_logistics` uses ideal circular two-body orbits,
-  so the launch-window series never precesses and the station never loses
-  altitude. A drag/J2 term would make the resupply cadence a function of time.
-  Acceptance: documented as an extension, or the scope note in
-  `manuscript/07_scope_and_related_work.md` stays as the honest boundary.
-- [ ] **`gor_tolerance_multiplier` is computed but unpublished.** It is tested
-  and exported, but no mission result, manuscript token or figure consumes it.
-  Either wire it into `compute_training` (so a slower onset rate widens the
-  allowance) or drop it. Leaving it half-connected is the shape of a knob that
-  does nothing. **Documented, not fixed:** the methodology no longer lists it
-  among the functions producing the training-regimen result and now states that
-  the reported regimen is onset-rate–independent, and `07_scope` carries it as
-  an explicit non-modelled item. Wiring it in would move the published numbers,
-  so it is a decision, not a cleanup — the paper's claim is now accurate either
-  way.
+**C1 — `execute()`'s `launch_windows` branch silently ignores the canonical
+orbit parameters.** The branch at `src/moonraker/mission.py:252-271` reads the
+short keys `altitude_km` and `num_windows` from `step.params`, while
+`MISSION_DEFAULTS` (merged in as `{**MISSION_DEFAULTS, **step.params}`) names
+them `station_altitude_km` and `launch_horizon_h`. A step that sets the
+canonical name is accepted and discarded. Reproduced today:
 
-### Manuscript
+```python
+Step(action="launch_windows", params={"station_altitude_km": 700.0,
+                                      "altitude_km": 350.0, "num_windows": 6})
+# -> results["orbit"]["period_s"] == 5483.55  (the 350 km value; 700 km ignored)
+```
 
-- [ ] **Centrifuge remediation as a computed recommendation.** §Results states
-  the plateau that *would* pass by pointing at `CENTRIFUGE_ALLOWABLE_S`. A
-  dedicated `compute_*` factory returning a certified-by-construction profile
-  (shortened plateau, or reduced peak) would make the recommendation a first
-  class result rather than a reader's inference.
+The branch also has no horizon concept at all: it returns exactly
+`num_windows` entries, which is the input-echo pattern that was removed from
+the published path (`compute_orbit` uses `windows_in_horizon`,
+`src/moonraker/mission_results.py:116-117`). The plan step that feeds it still
+hardcodes `{"altitude_km": 350.0, "num_windows": 6}` at
+`src/moonraker/mission.py:169-171`.
+**Done when** the branch resolves its inputs through `compute_orbit(params)`
+(or reads the canonical key names), and a test asserts that a step setting
+`station_altitude_km=700.0` moves `results["orbit"]["period_s"]` off the 350 km
+value. Note the plan's step param keys are part of what `bond-cli` and the
+coordinator serialize — check `../bond-cli` and `../bond-coordinator` before
+renaming them, and prefer accepting both spellings over a silent drop.
+**Command:** `uv run pytest tests/test_mission.py -q`
 
-### Integration
+**C2 — `execute()`'s `g_profile` branch cannot express
+`centrifuge_margin_fraction`, so its verdict is computed under a different rule
+than the published one.** `src/moonraker/mission.py:281-285` calls
+`profile_is_safe(profile, g_limit=..., duration_limit_s=...)` and never passes
+`margin_fraction`, so it always uses the function default `0.2`
+(`src/moonraker/centrifuge.py:166`). `compute_centrifuge` passes the configured
+value (`src/moonraker/mission_results.py:147-151`). They agree today only
+because `manuscript/config.yaml:64` also says `0.2`. Reproduced today:
 
-- [ ] **`bond-utilities` provenance.** If the suite standardises on
-  `bond_utilities.mission_io.record_provenance_outcome`, `mission.py execute()`
-  should delegate its `Provenance` record through it. Acceptance: no signature
-  change to `MissionOutcome`, `wall_time_s` still `0.0`, `input_hash` unchanged
-  for an unchanged plan.
+```python
+Step(action="g_profile", params={"target_g": 6.0, "radius_m": 8.0,
+                                 "sustain_s": 12.0,
+                                 "centrifuge_margin_fraction": 0.5})
+# -> results["centrifuge"]["allowable_s"] == 7.2577  (unchanged; 0.5 ignored)
+```
 
-## Done and verified (do not re-open)
+**Done when** the branch's `allowable_s` moves when a step sets
+`centrifuge_margin_fraction`, pinned by a test that flips it and asserts the
+adapter's `allowable_s` equals `compute_centrifuge`'s under the same value.
+**Command:** `uv run pytest tests/test_mission.py -q`
 
-- **bond-api integration** — local path dependency; `mission.py` adapts the
-  frozen protocol; discovery by slug works via `bond_api.discovery`.
-- **bond-coordinator / bond-orchestrator** — consume the provider by slug; no
-  moonraker-side change is required.
-- **Phase-4 deepening** — `orbital_transfer`, `rendezvous`,
-  `centrifuge_training` and `schedule_crashing` are built, tested, registered as
-  gadgets, and written into the manuscript.
-- **Phase-5 defect pass** — the following were found and fixed, each with a test
-  that would catch a regression:
-  - `centrifuge.profile_is_safe` validated `duration_limit_s` and then never
-    used it: a ceiling that could not reject anything.
-  - `manuscript/03_results.md` rendered the "not certified" verdict token and
-    then called the profile "comfortably inside the tolerance envelope" in the
-    same sentence; `README.md` asserted it was safe outright.
-  - `mission.execute` computed centrifuge RPM against a hardcoded arm radius
-    while taking the profile from the step params, and hardcoded the consumables
-    parameters, so varying a plan silently did nothing.
-  - `mission.execute` incremented `steps_completed` for an unknown
-    `step.action`, reporting success for a computation that never ran.
-  - `centrifuge_training.gor_tolerance_multiplier` had an unreachable ceiling
-    check after the floor check, so a non-numeric ceiling escaped as a
-    `TypeError`.
-  - `manuscript_variables._environment_probe` was dead code; `shuttle_ops`
-    carried an unused `remaining` list in its cycle detector.
-  - `references.bib` credited *Moonraker* to "Wood, John" — the film was
-    directed by Lewis Gilbert from a screenplay by Christopher Wood.
-- **Phase-6 honesty pass** — an adversarial audit found nine defects; each is
-  now either made true, deleted, or stated as a named limitation:
-  - `figures.py` imported nothing from `mission_results` and re-declared the
-    station altitude, centrifuge profile, parking orbit and training caps as its
-    own literals, so editing `config.yaml` moved every prose token and no
-    figure. It plotted **eight** launch windows while the manuscript reported
-    six. Figures now take a params dict, resolve it through the one config
-    reader and call the canonical factories; `test_figures.py` counts the bars
-    actually drawn against `ORBIT_WINDOW_COUNT` and parses the module for
-    numeric constants.
-  - `ORBIT_WINDOW_COUNT` was `len(launch_windows(..., num_windows=6))` — an
-    input echoed back as a result, with no horizon and no filter. There is now a
-    real `windows_in_horizon` filter and a `launch_horizon_h` knob; the count
-    falls with altitude, rises with the horizon, and can be zero.
-  - `TestConfigKnobsAreConsumed` claimed to flip every knob and tested four of
-    twenty-three. It is now parametrised over all of `MISSION_DEFAULTS`, with a
-    probe table that must cover the parameter set exactly.
-  - `compute_transfer` passed a variable named `wet_mass` into a parameter named
-    `dry_mass_kg`, and the +5400 kg basis appeared in no token — so the
-    published 238.2 kg could not be re-derived from published numbers. The mass
-    basis is now named `burnout_mass_kg`, published as
-    `TRANSFER_BURNOUT_MASS_KG`, explained in the methodology, and pinned by a
-    hand-arithmetic test.
-  - `SHUTTLE_CRITICAL_PATH` rendered a seven-name union of **two** distinct
-    57-minute paths as one "critical path", two of whose consecutive members are
-    not dependency-linked. `TimelineSchedule` now carries `critical_activities`
-    (the set) and `critical_chains` (the enumerated paths), and §Results reports
-    both and says which is which.
-  - `DRAX_CRASH_OPTIONS` hand-duplicated all eight durations and every edge of
-    `DRAX_HIJACK_TIMELINE` with nothing comparing them, while the manuscript
-    subtracted across the two copies. It is now derived from the timeline, with
-    only the crash economics authored separately and a guard that refuses any
-    coverage mismatch.
-  - `test_figures.py::test_profile_plotted` asserted `isinstance(p, TrainingProfile)`
-    — true by the constructor's return type, binding nothing. Replaced by
-    content tests on the built figures.
-  - `test_z_generate_allow_draft_without_outputs` ran where the outputs already
-    existed, so its named precondition was false. It now runs in an isolated
-    tree with a strict-mode negative control.
-  - The methodology listed `gor_tolerance_multiplier` as one of three functions
-    producing the training-regimen result; nothing consumes it. The claim is
-    corrected and the limitation named (see Open, above).
+**C3 — `numpy` is a declared runtime dependency with no importer.**
+`pyproject.toml:20` requires `numpy>=1.24.0`;
+`grep -rn "import numpy" src/ scripts/ tests/` returns nothing (matplotlib
+pulls it transitively). **Done when** either the dependency is removed from
+`pyproject.toml` and the suite still passes after a re-sync, or a module
+actually imports it.
+**Command:** `uv sync --all-extras && uv run pytest tests/ --cov=src --cov-fail-under=90 -q`
 
-## Notes
+### Verification
 
-- `output/` is git-ignored and regenerable; `scripts/run_mission.py` restores a
-  byte-identical tree on re-run.
-- Measured coverage and test counts: `docs/_generated/COUNTS.md`. Do not quote
-  them elsewhere in prose.
+**V1 — the strict-mode guard's fall-through is the one uncovered branch in the
+package.** `src/moonraker/manuscript_variables.py:65->73`: no unit test calls
+`build_variable_map(..., require_analysis_outputs=True)` with
+`output/data/mission_results.json` present, so the "strict mode is satisfied
+and proceeds" path is exercised only through the subprocess smoke test
+(`tests/test_scripts_smoke.py:74-81`), which coverage does not see. The
+negative control exists (`:83-93`, strict mode refusing in `tmp_path`); the
+positive control does not. **Done when** a unit test builds a `tmp_path` tree
+containing a real `mission_results.json` plus `manuscript/config.yaml`, calls
+the function in strict mode, asserts it returns a map, and coverage on
+`manuscript_variables.py` reads 100.00%.
+**Command:** `uv run pytest tests/test_manuscript_variables.py --cov=src/moonraker/manuscript_variables.py --cov-report=term-missing -q`
+
+**V2 — the byte-identical re-run claim is asserted in prose but by no test.**
+`AGENTS.md:48-49` and `docs/testing_philosophy.md:95` state that
+`scripts/run_mission.py` "restores a byte-identical `output/` tree on re-run,
+which is the determinism proof". `tests/test_scripts_smoke.py:64-72` runs it
+**once** and checks that two files exist. Determinism is well covered one level
+down (`tests/test_figures.py:234` byte-compares rendered PNGs;
+`tests/test_mission.py:81` byte-compares two `execute` calls), but the
+end-to-end claim as written is unbound. **Done when** a test runs
+`run_mission.py` twice and compares a SHA-256 of every file under `output/`
+between the two runs — or the prose is narrowed to the per-artifact claims the
+existing tests do bind.
+**Command:** `uv run pytest tests/test_scripts_smoke.py -q`
+
+### Documentation
+
+**D1 — `docs/architecture.md` claims a data flow that two of six `execute`
+branches do not follow.** The diagram at `docs/architecture.md:217` hangs
+`mission.MissionProvider.execute()` off the `mission_results` factories node,
+and `:184-186` states "Every branch resolves its inputs as
+`{**MISSION_DEFAULTS, **step.params}`, so a plan that varies a parameter varies
+the whole computation rather than only the part that happens to read it." The
+`launch_windows` and `g_profile` branches call `orbital_logistics` and
+`centrifuge` directly and drop canonical keys (see C1, C2) — the merge happens,
+the branch does not read the merged keys. **Done when** C1 and C2 are fixed and
+the diagram is true as drawn, or — if the adapter's plan-parameterised path is
+kept deliberately separate — the diagram and the `:184-186` sentence say so
+explicitly and name which branches bypass the factories.
+**Command:** `grep -n "Every branch resolves" -A 3 docs/architecture.md` and
+re-read `src/moonraker/mission.py:240-296` against it.
+
+**D2 — `ORBIT_SUSTAINABLE_CREW` publishes 450 for a station the same config
+crews at 6, with no scale note.** `sustainable_crew(5400 kg, 6 d, 2 kg/p/d)`
+= 450 is arithmetically exact (it is capacity per resupply cycle divided by
+per-capita consumption), but the prose reads as an operational claim: "sustain
+**450** crew" at `manuscript/03_results.md:43`, `manuscript/00_abstract.md:19`
+and `manuscript/04_conclusion.md:15`, against `crew: 6` at
+`manuscript/config.yaml:53`. Nothing in the manuscript reconciles the two, and
+`ORBIT_CONSUMABLES_DAYS` is coincidentally also 450 (450 days for 6 crew),
+which makes the pair easy to misread as one number. This was flagged by the
+adversarial audit as out of that pass's scope. **Done when** the results
+paragraph states what the 450 means (a logistics ceiling per resupply cycle,
+not a habitability figure) and distinguishes it from the 450-day stores
+figure — or a token carries the ratio explicitly.
+**Command:** `uv run python scripts/run_mission.py && uv run python scripts/z_generate_manuscript_variables.py`
+then read `output/manuscript/03_results.md`.
+
+### Extension
+
+**E1 — decide `gor_tolerance_multiplier`: wire it in or delete it.**
+`src/moonraker/centrifuge_training.py:38` is implemented, exported and tested
+(15 assertions in `tests/test_centrifuge_training.py`) with **zero** call sites
+outside its own `__all__` entry. The audit's finding was resolved by *stating*
+the limitation, not by making the claim true:
+`manuscript/02_methodology.md:103-111` now says it is not part of any reported
+number, and `manuscript/07_scope_and_related_work.md:30-32` carries it as a
+named non-modelled item. The paper is honest either way; the knob is still a
+knob that does nothing. **Done when** either (a) `compute_training` credits the
+onset rate, the published training tokens move, and a test pins the new values
+against hand arithmetic, or (b) the function, its tests, its `__all__` entry
+and both manuscript caveats are removed together.
+**Command:** `uv run pytest tests/test_centrifuge_training.py tests/test_mission_results.py -q`
+
+**E2 — multi-burn rendezvous.** `single_impulse_intercept`
+(`src/moonraker/rendezvous.py:126`, raising at `:166` and `:168`) has no answer
+at the geometric singularities — whole-period intercept times and in-plane
+degeneracies — because no single impulse exists there. A two-burn
+Lambert-style solver would return a Δv instead of an exception. **Done when**
+each singular case in `tests/test_rendezvous.py` gains a companion assertion
+that the multi-burn path returns a finite Δv verified against an independent
+hand calculation.
+**Command:** `uv run pytest tests/test_rendezvous.py -q`
+
+**E3 — stochastic activity durations.** The hijack network is deterministic
+CPM, so `SHUTTLE_TOTAL_MIN` (57.0) has no confidence interval; this is
+currently carried as a stated scope boundary
+(`manuscript/07_scope_and_related_work.md:27-29`). A PERT three-point estimate
+per activity in `src/moonraker/shuttle_ops.py` would give one. **Done when** a
+new token reports the interval, the deterministic total is unchanged as the
+mean case, and the scope bullet is retired.
+**Command:** `uv run pytest tests/test_shuttle_ops.py tests/test_mission_results.py -q`
+
+**E4 — centrifuge remediation as a computed recommendation.**
+`manuscript/03_results.md:84-86` states the plateau that *would* pass by pointing
+the reader at `{{CENTRIFUGE_ALLOWABLE_S}}` and letting them infer the fix. A
+dedicated `compute_*` factory in `mission_results.py` returning a
+certified-by-construction profile (shortened plateau, or reduced peak) would
+make the recommendation a first-class result. **Done when** a new token carries
+the remediated profile and a test asserts `profile_is_safe` returns `True` for
+it under the shipped config.
+**Command:** `uv run pytest tests/test_mission_results.py -q`
+
+**E5 — `bond-utilities` provenance delegation.**
+`../bond-utilities/src/bond_utilities/mission_io.py:153` provides
+`record_provenance_outcome`. `moonraker` does not depend on `bond-utilities`
+(`pyproject.toml:19-24` lists only `numpy`, `matplotlib`, `pyyaml`,
+`bond-api`), and `mission.py` builds its `Provenance` record inline. If the
+suite standardises on the shared helper, `execute()` should delegate through
+it. **Done when** the dependency is added, the record is delegated, and:
+no signature change to `MissionOutcome`, `wall_time_s` still `0.0`, and
+`input_hash` unchanged for an unchanged plan.
+**Command:** `uv run pytest tests/test_mission.py -q`
+
+## Known limitations (not bugs)
+
+- **Ideal two-body orbits.** No drag, no J2, no third-body, no solar radiation
+  pressure, so the launch-window series never precesses and the station never
+  decays. Stated at `manuscript/07_scope_and_related_work.md:14-16`. Adding a
+  decay term would make the resupply cadence time-dependent and is a different
+  paper; the closed-form, hand-auditable model is the deliberate choice.
+- **Scalar +Gz, no biodynamics.** `centrifuge` treats tolerance as a
+  population-average envelope with no individual variation, no anti-G straining
+  manoeuvre, no G-suit and no inter-session fatigue
+  (`manuscript/07_scope_and_related_work.md:23-26`).
+- **No ascent or re-entry trajectories.** The timeline ends at docking; the
+  deorbit burn is sized but not flown
+  (`manuscript/07_scope_and_related_work.md:12-13`).
+- **Onset-rate credit is not in any published number.** This is the audit-forced
+  softening: rather than wiring `gor_tolerance_multiplier` in (which would move
+  published values), the claim was narrowed. The honest scope today is that the
+  reported allowance and session count are onset-rate–**independent**, said
+  plainly at `manuscript/02_methodology.md:103-111` and listed as non-modelled
+  at `manuscript/07_scope_and_related_work.md:30-32`. The paper is accurate;
+  the code carries an unused function. The remaining decision is E1 — do not
+  re-litigate the *wording*.
+- **The suite writes into the package's real `output/` tree.**
+  `tests/test_scripts_smoke.py` invokes the CLIs with `cwd=PROJECT_ROOT`, so
+  running the tests regenerates `output/`. Accepted: `output/` is git-ignored
+  and fully regenerable, and running the real scripts against the real tree is
+  what makes the smoke test a smoke test. The one case where the isolation
+  mattered — the strict/draft precondition — was moved to `tmp_path`
+  (`tests/test_scripts_smoke.py:83-101`).
+- **`ORBIT_WINDOW_COUNT` is 6, the same number the old hardcoded
+  `num_windows=6` produced.** This is a coincidence of the shipped 4-hour
+  horizon, not a surviving input echo. The filter is real
+  (`orbital_logistics.windows_in_horizon`, consumed at
+  `mission_results.py:116-117`) and is bound in both directions by
+  `tests/test_mission_results.py:219-220`: an 8 h horizon raises the count and
+  a 0.05 h horizon drops it. Verified this session — do not re-open on the
+  strength of the number alone.
+- **Coverage is 99.92%, not 100%.** The single gap is V1 above; every other
+  module in `src/moonraker/` measures 100.00% line+branch.
+
+## Verification
+
+Run from `projects/working/bond/moonraker/`. If `uv` reports
+`Failed to initialize cache`, the sandbox is blocking `~/.cache/uv`; re-run
+outside it.
+
+```bash
+uv sync --all-extras                                     # bare `uv sync` prunes pytest
+
+uv run pytest tests/ --cov=src --cov-fail-under=90 -q    # THE GATE
+#  expect: 241 passed, TOTAL 99.92%, "Required test coverage of 90% reached"
+
+uv run ruff check src/ scripts/ tests/                   # expect: All checks passed!
+uv run ruff format --check src/ scripts/ tests/          # expect: 41 files already formatted
+uv run mypy src/ scripts/                                # expect: no issues in 19 source files
+
+grep -rn "MagicMock\|mocker.patch\|unittest.mock" tests/*.py || echo "no mocks: clean"
+#  expect: "no mocks: clean" (tests/PATTERNS.md names the banned symbols in prose)
+
+uv run python scripts/run_mission.py                     # regenerates output/ (exit 0)
+uv run python scripts/z_generate_manuscript_variables.py # strict; exit 2 without outputs
+
+git status --short                                       # expect: empty (output/ is ignored)
+```
+
+`docs/_generated/COUNTS.md` holds the measured counts and is regenerated from
+the gate — update it there, and do not quote test counts or coverage anywhere
+else in prose.
