@@ -19,6 +19,7 @@ from moonraker.orbital_logistics import (
     resupply_interval,
     sustainable_crew,
     visibility_half_angle,
+    windows_in_horizon,
 )
 
 
@@ -118,6 +119,48 @@ class TestLaunchWindow:
             launch_windows(350.0, num_windows=1, epoch_s=-1.0)
         with pytest.raises(ValueError):
             launch_windows(-1.0, num_windows=1)
+
+
+class TestWindowsInHorizon:
+    """The horizon filter is a real bound, not an echo of a requested count."""
+
+    def test_count_matches_the_closed_form(self) -> None:
+        horizon = 4.0 * 3600.0
+        half_period = orbital_period(350.0) / 2.0
+        duration = pass_duration(350.0)
+        expected = int((horizon - duration) // half_period) + 1
+        assert len(windows_in_horizon(350.0, horizon)) == expected
+
+    def test_every_returned_window_closes_inside_the_horizon(self) -> None:
+        horizon = 4.0 * 3600.0
+        windows = windows_in_horizon(350.0, horizon)
+        assert windows
+        assert all(w.close_s <= horizon for w in windows)
+        # ... and the next one would not fit, so the filter really is binding.
+        half_period = orbital_period(350.0) / 2.0
+        assert len(windows) * half_period + (windows[0].close_s - windows[0].open_s) > horizon
+
+    def test_count_falls_as_the_station_climbs(self) -> None:
+        """A longer period means fewer plane crossings in the same horizon."""
+        horizon = 4.0 * 3600.0
+        low = len(windows_in_horizon(350.0, horizon))
+        high = len(windows_in_horizon(700.0, horizon))
+        assert high < low
+
+    def test_count_rises_with_the_horizon(self) -> None:
+        short = len(windows_in_horizon(350.0, 4.0 * 3600.0))
+        long = len(windows_in_horizon(350.0, 8.0 * 3600.0))
+        assert long > short
+
+    def test_horizon_shorter_than_one_pass_yields_nothing(self) -> None:
+        duration = pass_duration(350.0)
+        assert windows_in_horizon(350.0, duration / 2.0) == ()
+
+    def test_invalid_args_raise(self) -> None:
+        with pytest.raises(ValueError):
+            windows_in_horizon(350.0, 0.0)
+        with pytest.raises(ValueError):
+            windows_in_horizon(350.0, 3600.0, epoch_s=-1.0)
 
 
 class TestConsumables:

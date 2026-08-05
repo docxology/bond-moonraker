@@ -24,10 +24,15 @@ does not duplicate them.
   Acceptance: documented as an extension, or the scope note in
   `manuscript/07_scope_and_related_work.md` stays as the honest boundary.
 - [ ] **`gor_tolerance_multiplier` is computed but unpublished.** It is tested
-  and exported, and the methodology describes it, but no mission result or
-  manuscript token consumes it. Either wire it into `compute_training` (so a
-  slower onset rate widens the allowance) or drop it. Leaving it half-connected
-  is the shape of a knob that does nothing.
+  and exported, but no mission result, manuscript token or figure consumes it.
+  Either wire it into `compute_training` (so a slower onset rate widens the
+  allowance) or drop it. Leaving it half-connected is the shape of a knob that
+  does nothing. **Documented, not fixed:** the methodology no longer lists it
+  among the functions producing the training-regimen result and now states that
+  the reported regimen is onset-rate–independent, and `07_scope` carries it as
+  an explicit non-modelled item. Wiring it in would move the published numbers,
+  so it is a decision, not a cleanup — the paper's claim is now accurate either
+  way.
 
 ### Manuscript
 
@@ -73,6 +78,48 @@ does not duplicate them.
     carried an unused `remaining` list in its cycle detector.
   - `references.bib` credited *Moonraker* to "Wood, John" — the film was
     directed by Lewis Gilbert from a screenplay by Christopher Wood.
+- **Phase-6 honesty pass** — an adversarial audit found nine defects; each is
+  now either made true, deleted, or stated as a named limitation:
+  - `figures.py` imported nothing from `mission_results` and re-declared the
+    station altitude, centrifuge profile, parking orbit and training caps as its
+    own literals, so editing `config.yaml` moved every prose token and no
+    figure. It plotted **eight** launch windows while the manuscript reported
+    six. Figures now take a params dict, resolve it through the one config
+    reader and call the canonical factories; `test_figures.py` counts the bars
+    actually drawn against `ORBIT_WINDOW_COUNT` and parses the module for
+    numeric constants.
+  - `ORBIT_WINDOW_COUNT` was `len(launch_windows(..., num_windows=6))` — an
+    input echoed back as a result, with no horizon and no filter. There is now a
+    real `windows_in_horizon` filter and a `launch_horizon_h` knob; the count
+    falls with altitude, rises with the horizon, and can be zero.
+  - `TestConfigKnobsAreConsumed` claimed to flip every knob and tested four of
+    twenty-three. It is now parametrised over all of `MISSION_DEFAULTS`, with a
+    probe table that must cover the parameter set exactly.
+  - `compute_transfer` passed a variable named `wet_mass` into a parameter named
+    `dry_mass_kg`, and the +5400 kg basis appeared in no token — so the
+    published 238.2 kg could not be re-derived from published numbers. The mass
+    basis is now named `burnout_mass_kg`, published as
+    `TRANSFER_BURNOUT_MASS_KG`, explained in the methodology, and pinned by a
+    hand-arithmetic test.
+  - `SHUTTLE_CRITICAL_PATH` rendered a seven-name union of **two** distinct
+    57-minute paths as one "critical path", two of whose consecutive members are
+    not dependency-linked. `TimelineSchedule` now carries `critical_activities`
+    (the set) and `critical_chains` (the enumerated paths), and §Results reports
+    both and says which is which.
+  - `DRAX_CRASH_OPTIONS` hand-duplicated all eight durations and every edge of
+    `DRAX_HIJACK_TIMELINE` with nothing comparing them, while the manuscript
+    subtracted across the two copies. It is now derived from the timeline, with
+    only the crash economics authored separately and a guard that refuses any
+    coverage mismatch.
+  - `test_figures.py::test_profile_plotted` asserted `isinstance(p, TrainingProfile)`
+    — true by the constructor's return type, binding nothing. Replaced by
+    content tests on the built figures.
+  - `test_z_generate_allow_draft_without_outputs` ran where the outputs already
+    existed, so its named precondition was false. It now runs in an isolated
+    tree with a strict-mode negative control.
+  - The methodology listed `gor_tolerance_multiplier` as one of three functions
+    producing the training-regimen result; nothing consumes it. The claim is
+    corrected and the limitation named (see Open, above).
 
 ## Notes
 

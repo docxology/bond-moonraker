@@ -12,7 +12,13 @@ module implements the classic project-crashing trade-off:
   pick the cheapest still-crashable critical activity, and crash it one minute
   at a time until the deadline is met or no further compression is possible.
 * :data:`DRAX_CRASH_OPTIONS` — the canonical crashable version of the DRAX
-  hijack timeline.
+  hijack timeline. It is *derived* from
+  :data:`moonraker.shuttle_ops.DRAX_HIJACK_TIMELINE` rather than re-typed:
+  durations and dependency edges come from the timeline, and only the crash
+  economics (minimum duration and cost per minute) are new data here. The two
+  networks therefore cannot drift apart, and
+  :func:`_crashable_from_timeline` raises if the economics table stops covering
+  the timeline exactly.
 
 The module is infrastructure-free (stdlib only), deterministic, and shares the
 CPM solver with :mod:`moonraker.shuttle_ops`.
@@ -22,12 +28,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .shuttle_ops import TimelineActivity, TimelineSchedule, compute_timeline
+from .shuttle_ops import (
+    DRAX_HIJACK_TIMELINE,
+    TimelineActivity,
+    TimelineSchedule,
+    compute_timeline,
+)
 
 __all__ = [
     "CrashableActivity",
     "CrashResult",
     "crash_schedule",
+    "DRAX_CRASH_ECONOMICS",
     "DRAX_CRASH_OPTIONS",
 ]
 
@@ -84,7 +96,9 @@ class CrashResult:
         total_cost: the summed crash cost.
         crashed: activity name -> minutes crashed.
         feasible: True when the deadline was reached.
-        final_critical_path: the critical path after crashing.
+        final_critical_activities: the zero-slack activity *set* after crashing
+            (a union when the crashed network carries several critical paths —
+            see :class:`moonraker.shuttle_ops.TimelineSchedule`).
     """
 
     original_duration_min: float
@@ -92,7 +106,7 @@ class CrashResult:
     total_cost: float
     crashed: dict[str, float]
     feasible: bool
-    final_critical_path: tuple[str, ...]
+    final_critical_activities: tuple[str, ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.crashed, dict):
@@ -104,8 +118,12 @@ class CrashResult:
         ):
             if not (isinstance(value, (int, float)) and value >= 0):
                 raise ValueError(f"{label} must be >= 0 (got {value!r})")
-        if not (isinstance(self.feasible, bool) and isinstance(self.final_critical_path, tuple)):
-            raise ValueError("CrashResult.feasible must be bool and final_critical_path a tuple")
+        if not (
+            isinstance(self.feasible, bool) and isinstance(self.final_critical_activities, tuple)
+        ):
+            raise ValueError(
+                "CrashResult.feasible must be bool and final_critical_activities a tuple"
+            )
 
 
 def crash_schedule(
@@ -157,7 +175,7 @@ def crash_schedule(
 
     while schedule.total_duration_min > deadline_min:
         critical_crashable: list[str] = []
-        for name in schedule.critical_path:
+        for name in schedule.critical_activities:
             if remaining[name] > 1e-9:
                 critical_crashable.append(name)
         if not critical_crashable:
@@ -179,7 +197,7 @@ def crash_schedule(
         total_cost=total_cost,
         crashed={name: round(minutes, 4) for name, minutes in crashed.items() if minutes > 1e-9},
         feasible=bool(final_duration <= deadline_min),
-        final_critical_path=schedule.critical_path,
+        final_critical_activities=schedule.critical_activities,
     )
 
 
@@ -191,22 +209,58 @@ def activities_by_name(activities: tuple[CrashableActivity, ...], name: str) -> 
     raise KeyError(f"no crashable activity named {name!r}")
 
 
-#: Canonical crashable DRAX hijack timeline (normal, crash, cost-per-minute).
-DRAX_CRASH_OPTIONS: tuple[CrashableActivity, ...] = (
-    CrashableActivity("infiltrate_launch_tower", 12.0, 8.0, 2.0),
-    CrashableActivity("neutralise_shuttle_crew", 9.0, 6.0, 3.0, ("infiltrate_launch_tower",)),
-    CrashableActivity("seize_flight_deck", 6.0, 4.0, 4.0, ("infiltrate_launch_tower",)),
-    CrashableActivity("assume_ground_control", 15.0, 10.0, 2.5, ("infiltrate_launch_tower",)),
-    CrashableActivity(
-        "launch_shuttle", 4.0, 3.0, 5.0, ("neutralise_shuttle_crew", "seize_flight_deck")
-    ),
-    CrashableActivity("execute_orbital_insertion", 10.0, 8.0, 3.5, ("launch_shuttle",)),
-    CrashableActivity("spoof_telemetry", 8.0, 5.0, 2.0, ("assume_ground_control",)),
-    CrashableActivity(
-        "rendezvous_drax_station",
-        22.0,
-        18.0,
-        4.0,
-        ("execute_orbital_insertion", "spoof_telemetry"),
-    ),
+#: Crash economics for the DRAX hijack: activity name -> (minimum achievable
+#: duration in minutes, cost per minute saved). This table is the ONLY crash
+#: data authored here; normal durations and dependency edges are read from
+#: :data:`moonraker.shuttle_ops.DRAX_HIJACK_TIMELINE`.
+DRAX_CRASH_ECONOMICS: dict[str, tuple[float, float]] = {
+    "infiltrate_launch_tower": (8.0, 2.0),
+    "neutralise_shuttle_crew": (6.0, 3.0),
+    "seize_flight_deck": (4.0, 4.0),
+    "assume_ground_control": (10.0, 2.5),
+    "launch_shuttle": (3.0, 5.0),
+    "execute_orbital_insertion": (8.0, 3.5),
+    "spoof_telemetry": (5.0, 2.0),
+    "rendezvous_drax_station": (18.0, 4.0),
+}
+
+
+def _crashable_from_timeline(
+    timeline: tuple[TimelineActivity, ...],
+    economics: dict[str, tuple[float, float]],
+) -> tuple[CrashableActivity, ...]:
+    """Attach crash economics to a timeline, refusing any mismatch.
+
+    Durations and prerequisites come from ``timeline``, so the crashable network
+    is a projection of the canonical one rather than a hand-kept copy. The
+    economics table must name every timeline activity and nothing else — an
+    activity added to the timeline without crash data, or crash data left behind
+    for a deleted activity, raises here at import rather than silently producing
+    a crash network that models a different plan.
+
+    Raises:
+        ValueError: when the economics keys and the timeline names differ.
+    """
+    names = {a.name for a in timeline}
+    missing = sorted(names - set(economics))
+    extra = sorted(set(economics) - names)
+    if missing or extra:
+        raise ValueError(
+            f"crash economics must cover the timeline exactly (missing={missing}, unknown={extra})"
+        )
+    return tuple(
+        CrashableActivity(
+            name=activity.name,
+            normal_duration_min=float(activity.duration_min),
+            crash_duration_min=economics[activity.name][0],
+            cost_per_min=economics[activity.name][1],
+            depends_on=activity.depends_on,
+        )
+        for activity in timeline
+    )
+
+
+#: Canonical crashable DRAX hijack timeline, derived from the canonical network.
+DRAX_CRASH_OPTIONS: tuple[CrashableActivity, ...] = _crashable_from_timeline(
+    DRAX_HIJACK_TIMELINE, DRAX_CRASH_ECONOMICS
 )

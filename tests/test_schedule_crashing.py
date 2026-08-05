@@ -3,12 +3,15 @@
 import pytest
 
 from moonraker.schedule_crashing import (
+    DRAX_CRASH_ECONOMICS,
     DRAX_CRASH_OPTIONS,
     CrashableActivity,
     CrashResult,
+    _crashable_from_timeline,
     activities_by_name,
     crash_schedule,
 )
+from moonraker.shuttle_ops import DRAX_HIJACK_TIMELINE, TimelineActivity, compute_timeline
 
 
 class TestCrashableActivity:
@@ -94,6 +97,43 @@ class TestCrashSchedule:
                     CrashableActivity("a", 4.0, 2.0, 1.0),
                 ),
                 6.0,
+            )
+
+
+class TestCrashNetworkMirrorsTheTimeline:
+    """The crashable network is derived from the timeline, not hand-copied.
+
+    Before this, ``DRAX_CRASH_OPTIONS`` re-typed all eight durations and every
+    dependency edge of ``DRAX_HIJACK_TIMELINE``, and nothing compared them —
+    while the manuscript subtracts one network's total (57 min) from the
+    other's crashed total (50 min).
+    """
+
+    def test_durations_and_edges_come_from_the_canonical_timeline(self) -> None:
+        timeline = {a.name: a for a in DRAX_HIJACK_TIMELINE}
+        assert {a.name for a in DRAX_CRASH_OPTIONS} == set(timeline)
+        for crashable in DRAX_CRASH_OPTIONS:
+            source = timeline[crashable.name]
+            assert crashable.normal_duration_min == pytest.approx(source.duration_min)
+            assert crashable.depends_on == source.depends_on
+
+    def test_uncrashed_totals_agree(self) -> None:
+        """The subtraction the manuscript performs must be within one network."""
+        assert crash_schedule(DRAX_CRASH_OPTIONS, 999.0).original_duration_min == pytest.approx(
+            compute_timeline(DRAX_HIJACK_TIMELINE).total_duration_min
+        )
+
+    def test_missing_economics_entry_is_refused(self) -> None:
+        """An activity added to the timeline with no crash data must not slip through."""
+        extended = (*DRAX_HIJACK_TIMELINE, TimelineActivity("plant_charges", 5.0))
+        with pytest.raises(ValueError, match="missing="):
+            _crashable_from_timeline(extended, DRAX_CRASH_ECONOMICS)
+
+    def test_stale_economics_entry_is_refused(self) -> None:
+        """Crash data left behind for a deleted activity must not slip through."""
+        with pytest.raises(ValueError, match="unknown="):
+            _crashable_from_timeline(
+                DRAX_HIJACK_TIMELINE, {**DRAX_CRASH_ECONOMICS, "ghost_phase": (1.0, 1.0)}
             )
 
 

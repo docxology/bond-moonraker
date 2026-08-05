@@ -9,7 +9,11 @@ Real orbital mechanics and closed-form logistics for a crewed space station
 * :func:`visibility_half_angle` / :func:`pass_duration` — how long a ground
   site sees the station on each overhead pass (horizon geometry).
 * :func:`launch_windows` — the deterministic series of ground launch windows a
-  resupply craft can use to reach the station.
+  resupply craft can use to reach the station, ``num_windows`` of them.
+* :func:`windows_in_horizon` — the windows of that same series that are
+  *usable* inside a planning horizon: a window counts only if it opens and
+  closes before the horizon expires, so the count is a function of the
+  station's period, the pass geometry and the horizon, and can be zero.
 * the consumables model — :func:`consumables_days`, :func:`depletion_day`,
   :func:`sustainable_crew` and :func:`resupply_interval` — bounding station
   capacity, crew size and resupply cadence.
@@ -34,6 +38,7 @@ __all__ = [
     "visibility_half_angle",
     "pass_duration",
     "launch_windows",
+    "windows_in_horizon",
     "consumables_days",
     "depletion_day",
     "sustainable_crew",
@@ -184,6 +189,52 @@ def launch_windows(
         open_s = epoch_s + k * half_period
         windows.append(LaunchWindow(open_s=open_s, close_s=open_s + duration))
     return tuple(windows)
+
+
+def windows_in_horizon(
+    altitude_km: float,
+    horizon_s: float,
+    *,
+    epoch_s: float = 0.0,
+    elevation_threshold_deg: float = 10.0,
+) -> tuple[LaunchWindow, ...]:
+    """Return the launch windows that are *usable* within a planning horizon.
+
+    A window is usable only if the resupply craft can both catch it and fly it
+    before the planning horizon expires — that is, if the window **closes** at
+    or before ``epoch_s + horizon_s``. Because windows recur every half orbital
+    period and each lasts one usable pass, the count
+
+        ``n = floor((horizon_s - pass_duration) / (T/2)) + 1``   (0 when negative)
+
+    falls as the station climbs (longer period, fewer plane crossings) and
+    rises with the horizon. It is genuinely bounded: a horizon shorter than one
+    pass returns an empty tuple.
+
+    Args:
+        altitude_km: station altitude.
+        horizon_s: length of the planning horizon from ``epoch_s`` (> 0).
+        epoch_s: mission epoch (seconds); windows are relative to this.
+        elevation_threshold_deg: minimum pass elevation for a usable launch.
+
+    Returns:
+        The ordered tuple of usable :class:`LaunchWindow`, possibly empty.
+    """
+    if not (isinstance(horizon_s, (int, float)) and horizon_s > 0):
+        raise ValueError(f"horizon_s must be > 0 (got {horizon_s!r})")
+    if not (isinstance(epoch_s, (int, float)) and epoch_s >= 0):
+        raise ValueError(f"epoch_s must be >= 0 (got {epoch_s!r})")
+    half_period = orbital_period(altitude_km) / 2.0
+    duration = pass_duration(altitude_km, elevation_threshold_deg=elevation_threshold_deg)
+    if duration > horizon_s:
+        return ()
+    count = int((horizon_s - duration) // half_period) + 1
+    return launch_windows(
+        altitude_km,
+        num_windows=count,
+        epoch_s=epoch_s,
+        elevation_threshold_deg=elevation_threshold_deg,
+    )
 
 
 def consumables_days(capacity_kg: float, crew: int, rate_kg_per_person_day: float) -> float:

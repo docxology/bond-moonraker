@@ -93,6 +93,7 @@ def generate_variables(
         "CONFIG_CODENAME": str(config.get("codename", "DRAX")),
         "CONFIG_DEADLINE_MIN": str(mission["deadline_min"]),
         "CONFIG_STATION_ALTITUDE_KM": str(mission["station_altitude_km"]),
+        "CONFIG_LAUNCH_HORIZON_H": str(mission["launch_horizon_h"]),
         "CONFIG_PARK_ALTITUDE_KM": str(mission["park_altitude_km"]),
         "CONFIG_TRANSFER_ISP_S": str(mission["transfer_isp_s"]),
         "CONFIG_TRANSFER_DRY_MASS_KG": str(mission["transfer_dry_mass_kg"]),

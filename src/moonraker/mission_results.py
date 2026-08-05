@@ -6,11 +6,14 @@ over a fixed, documented parameter set (matching the DRAX mission plan) and
 returns a deterministic dict. Everything is a closed-form computation — no RNG,
 no wall-clock — so reruns are byte-identical.
 
-The :func:`compute_transfer`, :func:`compute_rendezvous`,
-:func:`compute_training` and :func:`compute_crash` helpers are the
-single-source-of-truth factories shared by both the mission ``execute()``
-adapter and the manuscript token map, so an outcome result and its
-corresponding ``{{TOKEN}}`` can never disagree.
+The :func:`compute_schedule`, :func:`compute_orbit`, :func:`compute_centrifuge`,
+:func:`compute_transfer`, :func:`compute_rendezvous`, :func:`compute_training`
+and :func:`compute_crash` helpers are the single-source-of-truth factories
+shared by the mission ``execute()`` adapter, the manuscript token map **and**
+:mod:`moonraker.figures`, so an outcome result, its corresponding ``{{TOKEN}}``
+and the plotted figure can never disagree. Every factory takes the same
+parameter dict, so all three consumers are driven by one copy of
+``manuscript/config.yaml`` → ``mission:``.
 """
 
 from __future__ import annotations
@@ -24,10 +27,10 @@ from .orbital_logistics import (
     EARTH_RADIUS_KM,
     circular_speed,
     consumables_days,
-    launch_windows,
     orbital_period,
     orbits_per_day,
     sustainable_crew,
+    windows_in_horizon,
 )
 from .orbital_transfer import (
     deorbit_dv,
@@ -43,6 +46,9 @@ from .shuttle_ops import DRAX_HIJACK_TIMELINE, compute_timeline, timeline_feasib
 __all__ = [
     "MISSION_DEFAULTS",
     "compute_mission_results",
+    "compute_schedule",
+    "compute_orbit",
+    "compute_centrifuge",
     "compute_transfer",
     "compute_rendezvous",
     "compute_training",
@@ -55,6 +61,9 @@ MISSION_DEFAULTS: dict[str, Any] = {
     "deadline_min": 60.0,
     # Orbital logistics / station.
     "station_altitude_km": 350.0,
+    # Length of the launch planning horizon (hours). Windows that do not both
+    # open and close inside it are not usable, so this bounds the window count.
+    "launch_horizon_h": 4.0,
     "crew": 6,
     "capacity_kg": 5400.0,
     "rate_kg_per_person_day": 2.0,
@@ -82,17 +91,97 @@ MISSION_DEFAULTS: dict[str, Any] = {
 }
 
 
+def compute_schedule(params: dict[str, Any]) -> dict[str, Any]:
+    """Canonical CPM solution of the hijack timeline plus its deadline verdict."""
+    schedule = compute_timeline(DRAX_HIJACK_TIMELINE)
+    feasible, margin = timeline_feasibility(schedule, float(params["deadline_min"]))
+    return {
+        "schedule": schedule,
+        "total_duration_min": schedule.total_duration_min,
+        "critical_activities": schedule.critical_activities,
+        "critical_chains": schedule.critical_chains,
+        "feasible": feasible,
+        "margin_min": margin,
+    }
+
+
+def compute_orbit(params: dict[str, Any]) -> dict[str, Any]:
+    """Canonical station-orbit and consumables metrics, plus the usable windows.
+
+    ``windows`` is the actual :class:`~moonraker.orbital_logistics.LaunchWindow`
+    series the manuscript counts and the orbit figure plots — one list, so the
+    bar chart and ``ORBIT_WINDOW_COUNT`` cannot report different numbers.
+    """
+    altitude = float(params["station_altitude_km"])
+    horizon_s = float(params["launch_horizon_h"]) * 3600.0
+    windows = windows_in_horizon(altitude, horizon_s)
+    return {
+        "altitude_km": altitude,
+        "period_s": orbital_period(altitude),
+        "speed_km_s": circular_speed(altitude),
+        "orbits_per_day": orbits_per_day(altitude),
+        "horizon_h": float(params["launch_horizon_h"]),
+        "windows": windows,
+        "consumables_days": consumables_days(
+            float(params["capacity_kg"]),
+            int(params["crew"]),
+            float(params["rate_kg_per_person_day"]),
+        ),
+        "sustainable_crew": sustainable_crew(
+            float(params["capacity_kg"]),
+            float(params["resupply_interval_days"]),
+            float(params["rate_kg_per_person_day"]),
+        ),
+    }
+
+
+def compute_centrifuge(params: dict[str, Any]) -> dict[str, Any]:
+    """Canonical centrifuge profile, safety adjudication and RPM."""
+    profile = build_training_profile(
+        target_g=float(params["centrifuge_target_g"]),
+        radius_m=float(params["centrifuge_radius_m"]),
+        sustain_s=float(params["centrifuge_sustain_s"]),
+        ramp_rate_g_per_s=float(params["ramp_rate_g_per_s"]),
+        decay_rate_g_per_s=float(params["decay_rate_g_per_s"]),
+    )
+    safe, metrics = profile_is_safe(
+        profile,
+        float(params["g_limit"]),
+        float(params["duration_limit_s"]),
+        margin_fraction=float(params["centrifuge_margin_fraction"]),
+    )
+    return {
+        "profile": profile,
+        "safe": safe,
+        "allowable_s": metrics["allowable_s"],
+        "rpm": rpm_for_g(profile.peak_g, float(params["centrifuge_radius_m"])),
+        # Signed plateau exceedance: positive means the plateau overruns the
+        # governing allowance (the profile is NOT certified), negative means
+        # headroom remains. Reported so the prose never has to assert a verdict.
+        "exceedance_s": profile.sustain_duration_s - metrics["allowable_s"],
+    }
+
+
 def compute_transfer(params: dict[str, Any]) -> dict[str, Any]:
-    """Canonical Hohmann-transfer + propellant + deorbit metrics for the resupply."""
+    """Canonical Hohmann-transfer + propellant + deorbit metrics for the resupply.
+
+    The rocket equation sizes propellant against the **burnout** (final) mass,
+    which for this resupply is the dry structure *plus* the consumables it is
+    still carrying when the second burn ends: the cargo is delivered after
+    circularisation, so it is accelerated by both burns. That mass basis is
+    published as ``burnout_mass_kg`` (and as ``TRANSFER_BURNOUT_MASS_KG``) so a
+    reader can re-derive ``propellant = burnout_mass * (mass_ratio - 1)`` by
+    hand from published numbers alone.
+    """
     park = float(params["park_altitude_km"]) + EARTH_RADIUS_KM
     station = float(params["station_altitude_km"]) + EARTH_RADIUS_KM
     isp = float(params["transfer_isp_s"])
-    wet_mass = float(params["transfer_dry_mass_kg"]) + float(params["capacity_kg"])
+    burnout_mass_kg = float(params["transfer_dry_mass_kg"]) + float(params["capacity_kg"])
 
     transfer = hohmann_transfer(park, station)
     wait_s, lead_rad = phase_wait_time(park, station, 0.0)
     ratio = tsiolkovsky_mass_ratio(transfer.total_dv_km_s, isp)
-    propellant = propellant_mass(transfer.total_dv_km_s, isp, wet_mass)
+    propellant = propellant_mass(transfer.total_dv_km_s, isp, burnout_mass_kg)
     deorbit = deorbit_dv(station, float(params["deorbit_perigee_km"]) + EARTH_RADIUS_KM)
 
     return {
@@ -100,9 +189,13 @@ def compute_transfer(params: dict[str, Any]) -> dict[str, Any]:
         "dv2_km_s": transfer.dv2_km_s,
         "total_dv_km_s": transfer.total_dv_km_s,
         "transfer_time_s": transfer.transfer_time_s,
+        "semi_major_km": transfer.semi_major_km,
+        "park_radius_km": park,
+        "station_radius_km": station,
         "wait_s": wait_s,
         "lead_deg": math.degrees(lead_rad),
         "mass_ratio": ratio,
+        "burnout_mass_kg": burnout_mass_kg,
         "propellant_kg": propellant,
         "deorbit_dv_km_s": deorbit,
     }
@@ -139,6 +232,8 @@ def compute_training(params: dict[str, Any]) -> dict[str, Any]:
         "sessions": cycle.sessions_per_week,
         "recommended": cycle.recommended_sessions,
         "feasible": cycle.feasible,
+        "daily_cap_g_s": cycle.daily_cap_g_s,
+        "weekly_cap_g_s": cycle.weekly_cap_g_s,
     }
 
 
@@ -167,68 +262,42 @@ def compute_mission_results(params: dict[str, Any] | None = None) -> dict[str, A
     """
     p = {**MISSION_DEFAULTS, **(params or {})}
 
-    # Shuttle hijack timeline (critical path + feasibility).
-    schedule = compute_timeline(DRAX_HIJACK_TIMELINE)
-    feasible, margin = timeline_feasibility(schedule, float(p["deadline_min"]))
-
-    # Orbital logistics.
-    altitude = float(p["station_altitude_km"])
-    period_s = orbital_period(altitude)
-    windows = launch_windows(altitude, num_windows=6)
-    consumables = consumables_days(
-        float(p["capacity_kg"]), int(p["crew"]), float(p["rate_kg_per_person_day"])
-    )
-    max_crew = sustainable_crew(
-        float(p["capacity_kg"]),
-        float(p["resupply_interval_days"]),
-        float(p["rate_kg_per_person_day"]),
-    )
-
-    # Centrifuge g-profile + safety.
-    profile = build_training_profile(
-        target_g=float(p["centrifuge_target_g"]),
-        radius_m=float(p["centrifuge_radius_m"]),
-        sustain_s=float(p["centrifuge_sustain_s"]),
-        ramp_rate_g_per_s=float(p["ramp_rate_g_per_s"]),
-        decay_rate_g_per_s=float(p["decay_rate_g_per_s"]),
-    )
-    safe, metrics = profile_is_safe(
-        profile,
-        float(p["g_limit"]),
-        float(p["duration_limit_s"]),
-        margin_fraction=float(p["centrifuge_margin_fraction"]),
-    )
-    rpm = rpm_for_g(profile.peak_g, float(p["centrifuge_radius_m"]))
-    # Signed plateau exceedance: positive means the plateau overruns the
-    # governing allowance (the profile is NOT certified), negative means
-    # headroom remains. Reported so the prose never has to assert a verdict.
-    exceedance_s = profile.sustain_duration_s - metrics["allowable_s"]
-
-    # Deepened concepts (canonical factories).
+    # Every published metric comes from a factory above — no metric is computed
+    # a second time here, in a figure, in a script or in the manuscript.
+    timeline = compute_schedule(p)
+    orbit = compute_orbit(p)
+    centrifuge = compute_centrifuge(p)
     transfer = compute_transfer(p)
     rendezvous = compute_rendezvous(p)
     training = compute_training(p)
     crash = compute_crash(p)
 
+    profile = centrifuge["profile"]
+
     return {
-        "SHUTTLE_TOTAL_MIN": round(schedule.total_duration_min, 2),
+        "SHUTTLE_TOTAL_MIN": round(timeline["total_duration_min"], 2),
         "SHUTTLE_NUM_PHASES": len(DRAX_HIJACK_TIMELINE),
-        "SHUTTLE_CRITICAL_PATH": ", ".join(schedule.critical_path),
-        "SHUTTLE_FEASIBLE": "yes" if feasible else "no",
-        "SHUTTLE_MARGIN_MIN": round(margin, 2),
-        "ORBIT_PERIOD_S": round(period_s, 1),
-        "ORBIT_SPEED_KMS": round(circular_speed(altitude), 3),
-        "ORBIT_ORBITS_PER_DAY": round(orbits_per_day(altitude), 1),
-        "ORBIT_WINDOW_COUNT": len(windows),
-        "ORBIT_CONSUMABLES_DAYS": round(consumables, 1),
-        "ORBIT_SUSTAINABLE_CREW": max_crew,
+        "SHUTTLE_CRITICAL_ACTIVITIES": ", ".join(timeline["critical_activities"]),
+        "SHUTTLE_CRITICAL_PATH_COUNT": len(timeline["critical_chains"]),
+        "SHUTTLE_CRITICAL_PATHS": "; ".join(
+            " → ".join(chain) for chain in timeline["critical_chains"]
+        ),
+        "SHUTTLE_FEASIBLE": "yes" if timeline["feasible"] else "no",
+        "SHUTTLE_MARGIN_MIN": round(timeline["margin_min"], 2),
+        "ORBIT_PERIOD_S": round(orbit["period_s"], 1),
+        "ORBIT_SPEED_KMS": round(orbit["speed_km_s"], 3),
+        "ORBIT_ORBITS_PER_DAY": round(orbit["orbits_per_day"], 1),
+        "ORBIT_WINDOW_HORIZON_H": orbit["horizon_h"],
+        "ORBIT_WINDOW_COUNT": len(orbit["windows"]),
+        "ORBIT_CONSUMABLES_DAYS": round(orbit["consumables_days"], 1),
+        "ORBIT_SUSTAINABLE_CREW": orbit["sustainable_crew"],
         "CENTRIFUGE_PEAK_G": round(profile.peak_g, 2),
         "CENTRIFUGE_SUSTAIN_S": round(profile.sustain_duration_s, 2),
-        "CENTRIFUGE_ALLOWABLE_S": round(metrics["allowable_s"], 2),
-        "CENTRIFUGE_RPM": round(rpm, 1),
-        "CENTRIFUGE_SAFE": "yes" if safe else "no",
-        "CENTRIFUGE_VERDICT": "certified" if safe else "not certified",
-        "CENTRIFUGE_EXCEEDANCE_S": round(exceedance_s, 2),
+        "CENTRIFUGE_ALLOWABLE_S": round(centrifuge["allowable_s"], 2),
+        "CENTRIFUGE_RPM": round(centrifuge["rpm"], 1),
+        "CENTRIFUGE_SAFE": "yes" if centrifuge["safe"] else "no",
+        "CENTRIFUGE_VERDICT": "certified" if centrifuge["safe"] else "not certified",
+        "CENTRIFUGE_EXCEEDANCE_S": round(centrifuge["exceedance_s"], 2),
         # Orbital transfer / rendezvous.
         "TRANSFER_DV1_KMS": round(transfer["dv1_km_s"], 4),
         "TRANSFER_DV2_KMS": round(transfer["dv2_km_s"], 4),
@@ -236,7 +305,13 @@ def compute_mission_results(params: dict[str, Any] | None = None) -> dict[str, A
         "TRANSFER_TIME_MIN": round(transfer["transfer_time_s"] / 60.0, 1),
         "TRANSFER_WAIT_H": round(transfer["wait_s"] / 3600.0, 1),
         "TRANSFER_LEAD_DEG": round(transfer["lead_deg"], 2),
-        "TRANSFER_MASS_RATIO": round(transfer["mass_ratio"], 4),
+        # Five decimals, not four: the manuscript invites the reader to
+        # multiply this by TRANSFER_BURNOUT_MASS_KG and land on
+        # TRANSFER_PROPELLANT_KG. At four decimals that product misses by ~0.4
+        # kg, which is exactly the kind of un-closable published arithmetic
+        # this package claims not to ship.
+        "TRANSFER_MASS_RATIO": round(transfer["mass_ratio"], 5),
+        "TRANSFER_BURNOUT_MASS_KG": round(transfer["burnout_mass_kg"], 1),
         "TRANSFER_PROPELLANT_KG": round(transfer["propellant_kg"], 1),
         "TRANSFER_DEORBIT_KMS": round(transfer["deorbit_dv_km_s"], 4),
         "RENDEZVOUS_IMPULSE_M_S": round(rendezvous["impulse_km_s"] * 1000.0, 3),

@@ -61,6 +61,7 @@ from .orbital_logistics import (
     resupply_interval,
     sustainable_crew,
     visibility_half_angle,
+    windows_in_horizon,
 )
 from .orbital_transfer import (
     HohmannTransfer,
@@ -140,4 +141,5 @@ __all__ = [
     "tsiolkovsky_mass_ratio",
     "vis_viva",
     "visibility_half_angle",
+    "windows_in_horizon",
 ]

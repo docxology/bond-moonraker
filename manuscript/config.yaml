@@ -49,6 +49,7 @@ metadata:
 mission:
   deadline_min: 60.0        # shuttle's point of no return (minutes from launch)
   station_altitude_km: 350.0
+  launch_horizon_h: 4.0     # launch planning horizon; bounds the usable window count
   crew: 6
   capacity_kg: 5400.0       # consumables mass carried by a resupply
   rate_kg_per_person_day: 2.0

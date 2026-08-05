@@ -27,6 +27,9 @@ Deliberately **not** modelled:
 - Stochastic activity durations. The hijack network is deterministic CPM with no
   PERT-style distribution over phase durations, so there is no confidence
   interval on the {{SHUTTLE_TOTAL_MIN}}-minute total.
+- Onset-rate credit in the training regimen. `centrifuge_training` implements
+  `gor_tolerance_multiplier`, but nothing published consumes it: the reported
+  allowance and session count are onset-rate–independent (see §Methodology).
 
 Each simplification is also documented at its point of use — for example the
 linear elevation-threshold shrinkage in `orbital_logistics.pass_duration` and
@@ -43,7 +46,7 @@ the power-law fit in `centrifuge.max_sustained_duration`.
 | Rocket equation | `orbital_transfer.py` | Tsiolkovsky (1903) [@tsiolkovsky1903] |
 | Linearised relative motion | `rendezvous.py` | Clohessy & Wiltshire (1960) [@clohessy1960] |
 | +Gz tolerance envelope | `centrifuge.py` | Stoll (1956) [@stoll1956human] |
-| +Gz exposure dosing, GOR scaling | `centrifuge_training.py` | Burton (1988) [@burton1988] |
+| +Gz exposure dosing (GOR scaling implemented but unpublished) | `centrifuge_training.py` | Burton (1988) [@burton1988] |
 
 The time-cost crashing trade-off is the cost extension of the same Kelley &
 Walker scheduling work that introduces CPM. This package implements the greedy

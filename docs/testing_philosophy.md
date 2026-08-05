@@ -37,12 +37,12 @@ canonical DRAX profile fails certification.
 | `test_centrifuge.py` | g↔rpm round trips, envelope shape, profile discretisation, **both** duration ceilings, and the pinned DRAX certification verdict |
 | `test_centrifuge_training.py` | GOR monotonicity and clamping, g·s dosing, cap arithmetic, and the validation edges (bad ceiling type, non-advancing time samples) |
 | `test_mission.py` | Protocol conformance by `isinstance`, all five stages, determinism of results and `input_hash`, gadget registration, discovery by slug, unknown-action refusal, and that step params actually reach the computation |
-| `test_mission_results.py` | The canonical metric set, determinism, parameter overrides, the pinned centrifuge verdict in both directions, and that every config knob moves a result |
+| `test_mission_results.py` | The canonical metric set, determinism, parameter overrides, the pinned centrifuge verdict in both directions, an exhaustive sweep asserting every key in `MISSION_DEFAULTS` moves a published value, and that the propellant, window count and critical-path count are re-derivable from published tokens |
 | `test_manuscript_variables.py` | Token map construction, strict vs draft mode, and the live cross-reference over every numbered section on disk |
-| `test_figures.py` | Each figure renders a valid PNG |
-| `test_scripts_smoke.py` | Every phase CLI and the flagship runner exit 0 and write the expected artifacts |
+| `test_figures.py` | Each figure renders a valid PNG; each figure's *content* follows the mission parameters; the bars drawn equal `ORBIT_WINDOW_COUNT` and `SHUTTLE_NUM_PHASES`; the deadline marker sits at the configured deadline; and `figures.py` declares no numeric constant of its own |
+| `test_scripts_smoke.py` | Every phase CLI and the flagship runner exit 0 and write the expected artifacts; strict vs draft mode is exercised in an isolated tree that genuinely has no `output/` |
 
-## Three rules that keep tests meaningful
+## Five rules that keep tests meaningful
 
 **1 · A test must be able to fail.** A parameter that is validated but never
 read produces a check that cannot reject anything. `profile_is_safe` carried
@@ -56,10 +56,36 @@ certification through a token. `TestComputeMissionResults` pins that verdict
 *and* pins the flip under a shortened plateau. Either direction of silent drift
 breaks a test before it can quietly contradict the paper.
 
-**3 · Bind config knobs to outcomes.** `TestConfigKnobsAreConsumed` flips each
-mission parameter and asserts the result moves. A knob that is named in
-`config.yaml`, documented in the setup table, and read by nothing advertises
-control the model does not have.
+**3 · Bind config knobs to outcomes.** `TestConfigKnobsAreConsumed` is
+parametrised over `sorted(MISSION_DEFAULTS)` — every key, not a sample — and
+asserts each flip changes at least one published value. A companion assertion
+requires the probe table to cover `MISSION_DEFAULTS` *exactly*, so adding a knob
+without a probe fails the suite instead of quietly escaping the sweep. A knob
+that is named in `config.yaml`, documented in the setup table, and read by
+nothing advertises control the model does not have.
+
+One knob carries a documented exception, stated in the probe table rather than
+hidden: `g_limit` cannot be exercised from the shipped defaults, because the
+DRAX plateau already fails the *duration* ceiling and the verdict reads "no"
+whatever the peak-g ceiling is. Its probe shortens the plateau to 1 s first, so
+`g_limit` is the only thing left that can reject the run.
+
+**4 · A test named for a precondition must establish it.** The draft-mode CLI
+test used to run against the package root, where `output/data/mission_results.json`
+had already been written by an earlier test in the same file — so "without
+outputs" was false at execution time and the assertion held whether or not
+`--allow-draft` did anything. It now copies `scripts/`, `src/` and `manuscript/`
+into a tmp tree with no `output/` at all, and is paired with a negative control
+that asserts the *strict* run fails in that same tree.
+
+**5 · Diff bytes, but count artists too.** `test_figures.py` renders each figure
+twice under different parameters and requires the PNGs to differ — but a byte
+diff cannot say *what* moved. Where a figure has a claim attached to it, the
+test reads the built `Figure`'s own artists: the number of window bars against
+`ORBIT_WINDOW_COUNT`, the number of Gantt bars against `SHUTTLE_NUM_PHASES`, the
+deadline line's x-position against `deadline_min`. That is what catches the
+defect that shipped here — a figure plotting eight launch windows beside prose
+reporting six.
 
 ## Determinism
 

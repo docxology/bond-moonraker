@@ -6,25 +6,38 @@ as tokens — the manuscript never hand-authors a metric.
 ## Shuttle hijack timeline
 
 The hijack finishes in **{{SHUTTLE_TOTAL_MIN}} minutes** over
-**{{SHUTTLE_NUM_PHASES}} phases**. The load-bearing critical path is
-**{{SHUTTLE_CRITICAL_PATH}}**. Against the {{CONFIG_DEADLINE_MIN}}-minute point
-of no return the plan is **{{SHUTTLE_FEASIBLE}}**, with a margin of
-**{{SHUTTLE_MARGIN_MIN}} minutes**.
+**{{SHUTTLE_NUM_PHASES}} phases**. The network carries
+**{{SHUTTLE_CRITICAL_PATH_COUNT}}** distinct critical paths, each
+{{SHUTTLE_TOTAL_MIN}} minutes long: **{{SHUTTLE_CRITICAL_PATHS}}**. Their union
+— the load-bearing, zero-slack activity set — is
+**{{SHUTTLE_CRITICAL_ACTIVITIES}}**. That set is *not* itself a route: two of
+its consecutive members are on different paths and are not linked by any
+dependency, so delaying any one of them delays the mission while only the
+listed paths can be walked end to end. Against the
+{{CONFIG_DEADLINE_MIN}}-minute point of no return the plan is
+**{{SHUTTLE_FEASIBLE}}**, with a margin of **{{SHUTTLE_MARGIN_MIN}} minutes**.
 
 ![The shuttle-hijack critical-path Gantt chart.](../output/figures/timeline_critical_path.png){#fig:timeline}
 
 If the operation must complete in **{{CRASH_DEADLINE_MIN}} minutes**, schedule
 crashing compresses the plan to **{{CRASH_FINAL_MIN}} minutes** — saving
 **{{CRASH_SAVED_MIN}} minutes** — at a minimum cost of **{{CRASH_TOTAL_COST}}**
-by crashing **{{CRASH_ACTIVITIES}}**.
+by crashing **{{CRASH_ACTIVITIES}}**. The saving is a subtraction within one
+network: the crashable model reads its durations and dependency edges from the
+same `DRAX_HIJACK_TIMELINE` that produced the {{SHUTTLE_TOTAL_MIN}}-minute
+total, adding only the per-activity crash limit and cost.
 
 ## Space-station orbital logistics
 
 The DRAX station at {{CONFIG_STATION_ALTITUDE_KM}} km altitude has an orbital
 period of **{{ORBIT_PERIOD_S}} s**, a circular speed of
 **{{ORBIT_SPEED_KMS}} km/s**, and completes **{{ORBIT_ORBITS_PER_DAY}}**
-orbits per sidereal day. The planning horizon yields
-**{{ORBIT_WINDOW_COUNT}}** usable ground launch windows. With
+orbits per sidereal day. Over a {{CONFIG_LAUNCH_HORIZON_H}}-hour launch
+planning horizon, **{{ORBIT_WINDOW_COUNT}}** ground launch windows both open
+and close in time to be usable — the count is the horizon divided by the
+half-period after allowing for one full pass, not a requested number: raising
+the station lengthens the period and drops the count, and a horizon shorter
+than a single pass admits none. With
 {{CONFIG_CAPACITY_KG}} kg of consumables delivered and a per-capita rate of
 {{CONFIG_RATE_KG_PERSON_DAY}} kg/person/day, the stores last
 **{{ORBIT_CONSUMABLES_DAYS}} days** and sustain **{{ORBIT_SUSTAINABLE_CREW}}**
@@ -39,9 +52,16 @@ with a Hohmann transfer costs **{{TRANSFER_DV1_KMS}} + {{TRANSFER_DV2_KMS}} =
 {{TRANSFER_TOTAL_DV_KMS}} km/s**, over a **{{TRANSFER_TIME_MIN}}-minute**
 half-ellipse. The chaser must wait **{{TRANSFER_WAIT_H}} h** for the
 **{{TRANSFER_LEAD_DEG}}°** lead angle. On a {{CONFIG_TRANSFER_ISP_S}} s engine
-the rocket equation gives a mass ratio of **{{TRANSFER_MASS_RATIO}}**, i.e.
-**{{TRANSFER_PROPELLANT_KG}} kg** of propellant for the loaded resupply craft;
-deorbit adds **{{TRANSFER_DEORBIT_KMS}} km/s**. The final
+the rocket equation gives a mass ratio of **{{TRANSFER_MASS_RATIO}}**. The mass
+that ratio acts on is the **burnout** mass — what the craft still weighs when
+the second burn ends — which here is
+**{{TRANSFER_BURNOUT_MASS_KG}} kg**: the {{CONFIG_TRANSFER_DRY_MASS_KG}} kg dry
+structure *plus* the {{CONFIG_CAPACITY_KG}} kg of consumables, since the cargo
+is delivered after circularisation and is therefore accelerated by both burns.
+So the propellant is
+{{TRANSFER_BURNOUT_MASS_KG}} × ({{TRANSFER_MASS_RATIO}} − 1) =
+**{{TRANSFER_PROPELLANT_KG}} kg**; deorbit adds
+**{{TRANSFER_DEORBIT_KMS}} km/s**. The final
 Clohessy–Wiltshire approach needs a **{{RENDEZVOUS_IMPULSE_M_S}} m/s**
 corrective impulse over **{{RENDEZVOUS_TIME_S}} s**.
 

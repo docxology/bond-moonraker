@@ -48,10 +48,43 @@ claims:
     source_tier: generated_metric
     freshness: active
     artifact_path: output/data/mission_results.json
+  - claim_id: transfer-burnout-mass-kg
+    kind: number
+    value: 7900.0
+    source: >-
+      src/moonraker/mission_results.py compute_transfer burnout_mass_kg =
+      transfer_dry_mass_kg (2500) + capacity_kg (5400); the cargo rides through
+      both burns, so it is part of the rocket equation's final mass
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json
   - claim_id: transfer-propellant-kg
     kind: number
     value: 238.2
-    source: src/moonraker/orbital_transfer.py propellant_mass(Isp 300 s)
+    source: >-
+      src/moonraker/orbital_transfer.py propellant_mass(Isp 300 s) on the
+      7900 kg burnout mass (see transfer-burnout-mass-kg), not on the 2500 kg
+      dry structure alone
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json
+  - claim_id: orbit-usable-launch-windows
+    kind: number
+    value: 6
+    source: >-
+      src/moonraker/orbital_logistics.py windows_in_horizon(350.0, 4 h) —
+      windows that both open and close inside the planning horizon; a filtered
+      count, not a requested one
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/data/mission_results.json
+  - claim_id: shuttle-critical-path-count
+    kind: number
+    value: 2
+    source: >-
+      src/moonraker/shuttle_ops.py compute_timeline critical_chains — distinct
+      source-to-sink zero-slack paths; the seven-name critical_activities set is
+      their union and is not a route
     source_tier: generated_metric
     freshness: active
     artifact_path: output/data/mission_results.json

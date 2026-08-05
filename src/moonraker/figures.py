@@ -1,13 +1,26 @@
 """Publication-figure generators for the DRAX mission.
 
-Three deterministic matplotlib figures, one per concept:
+Five deterministic matplotlib figures:
 
-* :func:`render_timeline_figure` — the shuttle-hijack critical path as a Gantt
-  layout, shading the activities on the critical path.
+* :func:`render_timeline_figure` — the hijack schedule as a Gantt layout,
+  shading the zero-slack (critical) activities and marking the deadline.
 * :func:`render_orbit_figure` — orbital period versus altitude, annotated with
-  the DRAX station's launch windows.
+  the DRAX station's usable launch windows inside the planning horizon.
 * :func:`render_centrifuge_figure` — the g-level training profile over time
-  with the tolerance envelope overlaid.
+  with the tolerance envelope and the governing allowance overlaid.
+* :func:`render_hohmann_figure` — the resupply transfer geometry: parking
+  orbit, station orbit and the transfer ellipse.
+* :func:`render_training_figure` — the weekly training exposure against the
+  g·s caps.
+
+**Every number these figures plot comes from
+:mod:`moonraker.mission_results`.** No figure re-declares a mission parameter
+and none recomputes a published metric: each generator resolves its parameters
+through :func:`mission_params` — which reads ``manuscript/config.yaml`` →
+``mission:`` via :func:`moonraker.manuscript_variables.load_mission_config`,
+the same reader the token map uses — and then calls the canonical factories.
+Editing ``config.yaml`` therefore moves the prose tokens and the figures
+together; a figure and its ``{{TOKEN}}`` cannot disagree.
 
 Each generator writes to ``output/figures/`` under the project root and
 returns the absolute path written. All are deterministic (fixed inputs, no
@@ -19,21 +32,30 @@ from __future__ import annotations
 import math
 import os
 from pathlib import Path
+from typing import Any
 
 os.environ.setdefault("MPLBACKEND", "Agg")
 
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.figure import Figure  # noqa: E402
 from matplotlib.patches import Circle  # noqa: E402
 
 from .centrifuge import max_sustained_duration  # noqa: E402
-from .centrifuge_training import plan_training_cycle  # noqa: E402
-from .orbital_logistics import launch_windows, orbital_period  # noqa: E402
-from .orbital_transfer import hohmann_transfer  # noqa: E402
-from .shuttle_ops import DRAX_HIJACK_TIMELINE, compute_timeline  # noqa: E402
+from .manuscript_variables import load_mission_config  # noqa: E402
+from .mission_results import (  # noqa: E402
+    MISSION_DEFAULTS,
+    compute_centrifuge,
+    compute_orbit,
+    compute_schedule,
+    compute_training,
+    compute_transfer,
+)
+from .orbital_logistics import EARTH_RADIUS_KM  # noqa: E402
 
 __all__ = [
-    "DRAX_STATION_ALTITUDE_KM",
     "figure_output_dir",
+    "mission_params",
+    "project_root",
     "render_centrifuge_figure",
     "render_hohmann_figure",
     "render_orbit_figure",
@@ -41,83 +63,106 @@ __all__ = [
     "render_training_figure",
 ]
 
-#: The DRAX station's operational altitude (km) used across the figures.
-DRAX_STATION_ALTITUDE_KM = 350.0
+
+def project_root() -> Path:
+    """Return the package root (the directory holding ``manuscript/``)."""
+    return Path(__file__).resolve().parents[2]
 
 
-def figure_output_dir(project_root: Path | None = None) -> Path:
+def mission_params(
+    params: dict[str, Any] | None = None, root: Path | None = None
+) -> dict[str, Any]:
+    """Return the mission parameter set a figure should plot.
+
+    With no argument the parameters are read from ``manuscript/config.yaml`` —
+    the single source of truth shared with the manuscript token map — falling
+    back to :data:`~moonraker.mission_results.MISSION_DEFAULTS` for keys the
+    config omits. An explicit ``params`` dict (used by tests and by callers
+    varying a scenario) is merged over the defaults the same way.
+    """
+    if params is not None:
+        return {**MISSION_DEFAULTS, **params}
+    return load_mission_config(root or project_root())
+
+
+def figure_output_dir(root: Path | None = None) -> Path:
     """Return (creating if needed) the figures output directory."""
-    root = project_root or Path(__file__).resolve().parents[2]
-    out = root / "output" / "figures"
+    out = (root or project_root()) / "output" / "figures"
     out.mkdir(parents=True, exist_ok=True)
     return out
 
 
-def render_timeline_figure(dest: Path | None = None) -> Path:
-    """Render the hijack critical-path Gantt chart to PNG."""
-    schedule = compute_timeline(DRAX_HIJACK_TIMELINE)
-    path = dest or (figure_output_dir() / "timeline_critical_path.png")
+def _build_timeline_figure(params: dict[str, Any] | None = None) -> Figure:
+    """Render the hijack schedule Gantt chart to PNG."""
+    p = mission_params(params)
+    timeline = compute_schedule(p)
+    schedule = timeline["schedule"]
 
     fig, ax = plt.subplots(figsize=(9, 5))
     names = list(schedule.earliest_start)
     for i, name in enumerate(names):
         start = schedule.earliest_start[name]
         dur = schedule.earliest_finish[name] - start
-        color = "#D55E00" if name in schedule.critical_path else "#0072B2"
+        color = "#D55E00" if name in schedule.critical_activities else "#0072B2"
         ax.barh(i, dur, left=start, color=color, edgecolor="black", linewidth=0.6)
+    ax.axvline(
+        float(p["deadline_min"]),
+        color="#000000",
+        linestyle="--",
+        linewidth=1.4,
+        label=f"point of no return ({p['deadline_min']} min)",
+    )
     ax.set_yticks(range(len(names)))
     ax.set_yticklabels(names, fontsize=8)
     ax.invert_yaxis()
     ax.set_xlabel("Minutes from launch")
-    ax.set_title(f"Shuttle Hijack Critical Path — total {schedule.total_duration_min:.0f} min")
+    ax.set_title(
+        f"Shuttle hijack schedule — total {timeline['total_duration_min']:.0f} min, "
+        f"{len(timeline['critical_chains'])} critical paths"
+    )
+    ax.legend(loc="lower right", fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    return Path(path)
+    return fig
 
 
-def render_orbit_figure(dest: Path | None = None) -> Path:
+def _build_orbit_figure(params: dict[str, Any] | None = None) -> Figure:
     """Render orbital period vs altitude with the DRAX station highlighted."""
-    path = dest or (figure_output_dir() / "orbit_period_windows.png")
+    p = mission_params(params)
+    orbit = compute_orbit(p)
 
-    altitudes = [float(a) for a in range(300, 1601, 100)]
-    periods = [orbital_period(a) / 60.0 for a in altitudes]
+    station_altitude = orbit["altitude_km"]
+    sweep_start = max(100.0, station_altitude - 50.0)
+    altitudes = [sweep_start + 100.0 * i for i in range(14)]
+    periods = [
+        compute_orbit({**p, "station_altitude_km": a})["period_s"] / 60.0 for a in altitudes
+    ]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))
     ax1.plot(altitudes, periods, color="#0072B2", linewidth=2.5, marker="o", markersize=4)
-    ax1.axvline(DRAX_STATION_ALTITUDE_KM, color="#D55E00", linestyle="--", linewidth=1.5)
+    ax1.axvline(station_altitude, color="#D55E00", linestyle="--", linewidth=1.5)
     ax1.set_xlabel("Altitude (km)")
     ax1.set_ylabel("Orbital period (min)")
     ax1.set_title("Kepler period vs altitude")
 
-    windows = launch_windows(DRAX_STATION_ALTITUDE_KM, num_windows=8)
+    windows = orbit["windows"]
     opens = [w.open_s / 60.0 for w in windows]
     closes = [w.close_s / 60.0 for w in windows]
     width = [c - o for o, c in zip(opens, closes, strict=True)]
     ax2.bar(list(range(len(windows))), width, color="#009E73", edgecolor="black", linewidth=0.6)
     ax2.set_xlabel("Launch window index")
     ax2.set_ylabel("Window duration (min)")
-    ax2.set_title("DRAX station ground launch windows")
+    ax2.set_title(f"{len(windows)} usable launch windows in a {orbit['horizon_h']:g} h horizon")
 
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    return Path(path)
+    return fig
 
 
-def render_centrifuge_figure(dest: Path | None = None) -> Path:
+def _build_centrifuge_figure(params: dict[str, Any] | None = None) -> Figure:
     """Render the g-force training profile with tolerance envelope."""
-    from .centrifuge import build_training_profile
-
-    profile = build_training_profile(
-        target_g=6.0,
-        radius_m=8.0,
-        sustain_s=12.0,
-        ramp_rate_g_per_s=0.5,
-        decay_rate_g_per_s=1.0,
-    )
-    path = dest or (figure_output_dir() / "centrifuge_g_profile.png")
+    p = mission_params(params)
+    centrifuge = compute_centrifuge(p)
+    profile = centrifuge["profile"]
 
     fig, ax = plt.subplots(figsize=(9, 5))
     ax.plot(profile.time_s, profile.g_levels, color="#0072B2", linewidth=2.5, label="g-level")
@@ -127,27 +172,34 @@ def render_centrifuge_figure(dest: Path | None = None) -> Path:
     tol = [max_sustained_duration(g) for g in g_points]
     ax2 = ax.twinx()
     ax2.plot(g_points, tol, color="#D55E00", linestyle="--", linewidth=1.8, label="tolerance (s)")
+    ax2.axhline(
+        centrifuge["allowable_s"],
+        color="#009E73",
+        linestyle=":",
+        linewidth=1.5,
+        label="governing allowance",
+    )
     ax2.set_ylabel("Max sustained duration (s)", color="#D55E00")
 
     ax.axhline(profile.peak_g, color="#999999", linestyle=":", linewidth=1.2)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("G-level")
-    ax.set_title(f"Centrifuge training profile — peak {profile.peak_g:.1f} g")
+    ax.set_title(
+        f"Centrifuge training profile — peak {profile.peak_g:.1f} g, "
+        f"allowance {centrifuge['allowable_s']:.1f} s"
+    )
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    return Path(path)
+    return fig
 
 
-def render_hohmann_figure(dest: Path | None = None) -> Path:
+def _build_hohmann_figure(params: dict[str, Any] | None = None) -> Figure:
     """Render the Hohmann transfer geometry (two circular orbits + ellipse)."""
-    from .orbital_logistics import EARTH_RADIUS_KM
+    p = mission_params(params)
+    transfer = compute_transfer(p)
 
-    path = dest or (figure_output_dir() / "hohmann_transfer.png")
-    park = 200.0 + EARTH_RADIUS_KM
-    station = DRAX_STATION_ALTITUDE_KM + EARTH_RADIUS_KM
-    transfer = hohmann_transfer(park, station)
+    park = transfer["park_radius_km"]
+    station = transfer["station_radius_km"]
     eccentricity = (station - park) / (station + park)
 
     fig, ax = plt.subplots(figsize=(6.2, 6.2))
@@ -161,7 +213,7 @@ def render_hohmann_figure(dest: Path | None = None) -> Path:
         ax.add_patch(circle)
 
     # Transfer ellipse in polar form: r(theta) = a(1-e^2) / (1 + e cos theta).
-    semi_major = transfer.semi_major_km
+    semi_major = transfer["semi_major_km"]
     theta = [t / 1000.0 * math.pi for t in range(0, 1001)]
     radii = [
         semi_major * (1 - eccentricity * eccentricity) / (1 + eccentricity * math.cos(t))
@@ -174,7 +226,7 @@ def render_hohmann_figure(dest: Path | None = None) -> Path:
         ys,
         color="#D55E00",
         linewidth=2.2,
-        label=f"transfer Δv {transfer.total_dv_km_s:.3f} km/s",
+        label=f"transfer Δv {transfer['total_dv_km_s']:.3f} km/s",
     )
 
     ax.set_aspect("equal")
@@ -186,41 +238,29 @@ def render_hohmann_figure(dest: Path | None = None) -> Path:
     ax.legend(loc="upper right")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    return Path(path)
+    return fig
 
 
-def render_training_figure(dest: Path | None = None) -> Path:
+def _build_training_figure(params: dict[str, Any] | None = None) -> Figure:
     """Render the weekly training exposure against the g·s caps."""
-    from .centrifuge import build_training_profile
-    from .centrifuge_training import profile_exposure
+    p = mission_params(params)
+    training = compute_training(p)
 
-    path = dest or (figure_output_dir() / "training_weekly_load.png")
-    profile = build_training_profile(
-        target_g=6.0,
-        radius_m=8.0,
-        sustain_s=12.0,
-        ramp_rate_g_per_s=0.5,
-        decay_rate_g_per_s=1.0,
-    )
-    per_session = profile_exposure(profile)
-    weekly_cap = 400.0
+    per_session = training["per_session_g_s"]
+    weekly_cap = training["weekly_cap_g_s"]
     counts = list(range(1, 7))
     exposures = [per_session * c for c in counts]
-    cycle = plan_training_cycle(
-        per_session_g_s=per_session,
-        daily_cap_g_s=150.0,
-        weekly_cap_g_s=weekly_cap,
-        sessions_per_week=4,
-    )
 
     fig, ax = plt.subplots(figsize=(8, 4.6))
     ax.bar(counts, exposures, color="#0072B2", edgecolor="black", linewidth=0.6)
     ax.axhline(
-        weekly_cap, color="#D55E00", linestyle="--", linewidth=1.8, label="weekly cap (400 g·s)"
+        weekly_cap,
+        color="#D55E00",
+        linestyle="--",
+        linewidth=1.8,
+        label=f"weekly cap ({weekly_cap:g} g·s)",
     )
-    ax.axvline(cycle.recommended_sessions, color="#009E73", linestyle=":", linewidth=1.5)
+    ax.axvline(training["recommended"], color="#009E73", linestyle=":", linewidth=1.5)
     for i, value in zip(counts, exposures, strict=True):
         ax.text(i, value + 6, f"{value:.0f}", ha="center", fontsize=8)
     ax.set_xticks(counts)
@@ -230,6 +270,39 @@ def render_training_figure(dest: Path | None = None) -> Path:
     ax.legend(loc="upper left")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
+    return fig
+
+
+def _save(fig: Figure, dest: Path | None, filename: str) -> Path:
+    """Write a built figure to ``dest`` (or the default output path) and close it."""
+    path = Path(dest or (figure_output_dir() / filename))
     fig.savefig(path, dpi=150)
     plt.close(fig)
-    return Path(path)
+    return path
+
+
+def render_timeline_figure(dest: Path | None = None, params: dict[str, Any] | None = None) -> Path:
+    """Render the hijack schedule Gantt chart to PNG."""
+    return _save(_build_timeline_figure(params), dest, "timeline_critical_path.png")
+
+
+def render_orbit_figure(dest: Path | None = None, params: dict[str, Any] | None = None) -> Path:
+    """Render orbital period vs altitude with the DRAX station highlighted."""
+    return _save(_build_orbit_figure(params), dest, "orbit_period_windows.png")
+
+
+def render_centrifuge_figure(
+    dest: Path | None = None, params: dict[str, Any] | None = None
+) -> Path:
+    """Render the g-force training profile with tolerance envelope."""
+    return _save(_build_centrifuge_figure(params), dest, "centrifuge_g_profile.png")
+
+
+def render_hohmann_figure(dest: Path | None = None, params: dict[str, Any] | None = None) -> Path:
+    """Render the Hohmann transfer geometry (two circular orbits + ellipse)."""
+    return _save(_build_hohmann_figure(params), dest, "hohmann_transfer.png")
+
+
+def render_training_figure(dest: Path | None = None, params: dict[str, Any] | None = None) -> Path:
+    """Render the weekly training exposure against the g\u00b7s caps."""
+    return _save(_build_training_figure(params), dest, "training_weekly_load.png")

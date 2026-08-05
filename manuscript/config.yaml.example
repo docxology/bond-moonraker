@@ -32,6 +32,7 @@ metadata:
 mission:
   deadline_min: 60.0
   station_altitude_km: 350.0
+  launch_horizon_h: 4.0
   crew: 6
   capacity_kg: 5400.0
   rate_kg_per_person_day: 2.0

@@ -13,9 +13,15 @@ Every module in this package is deterministic by construction:
   `input_hash` over the serialized plan plus package identity, so an outcome can
   be audited without re-running the mission. `Provenance.wall_time_s` is
   deliberately `0.0`: a timing figure would make otherwise-identical runs differ.
-- `moonraker/mission_results.py` is the single canonical computation. The
-  mission `execute()` adapter, the manuscript token map and the figures all read
-  it, so an outcome value and its injected token cannot disagree.
+- `moonraker/mission_results.py` is the single canonical computation. Its
+  factories (`compute_schedule`, `compute_orbit`, `compute_centrifuge`,
+  `compute_transfer`, `compute_rendezvous`, `compute_training`,
+  `compute_crash`) are what the mission `execute()` adapter, the manuscript
+  token map **and** `moonraker/figures.py` all call, each on the same parameter
+  dict read from `manuscript/config.yaml`. No figure declares a mission
+  constant of its own — `tests/test_figures.py` parses the module and fails if
+  one reappears — so an outcome value, its injected token and the plotted
+  figure cannot disagree.
 - Figures are rendered through the headless `Agg` backend with fixed inputs.
 
 Running `scripts/run_mission.py` restores a byte-identical `output/` tree. The
@@ -52,3 +58,10 @@ numbered section on disk and fails if any brace-delimited token it uses is
 absent from the generated map, so prose can never reference a variable that no longer exists.
 `TestComputeMissionResults` pins the centrifuge certification verdict in both
 directions, so the negative result reported in §Results cannot silently invert.
+`TestConfigKnobsAreConsumed` sweeps **every** key in `MISSION_DEFAULTS` — the
+probe table must cover the parameter set exactly, so a knob added without one
+fails the suite — and asserts each one moves at least one published value when
+flipped. One knob, the peak-g ceiling, is exercised from a shortened plateau
+rather than the shipped defaults, because the DRAX plateau already fails the
+duration ceiling and no peak-g value could change that verdict; the test says
+so in place.

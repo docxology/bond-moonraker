@@ -57,6 +57,19 @@ class TestProviderSurface:
         assert outcome.provenance.wall_time_s == 0.0
         assert outcome.provenance.input_hash
 
+    def test_execute_reports_activity_set_and_paths_separately(self) -> None:
+        """The outcome must not present the zero-slack union as one route."""
+        outcome = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief()))
+        timeline = outcome.results["timeline"]
+        assert "critical_path" not in timeline
+        assert len(timeline["critical_paths"]) == 2
+        assert set(timeline["critical_activities"]) == {
+            name for path in timeline["critical_paths"] for name in path
+        }
+        assert all(
+            len(path) < len(timeline["critical_activities"]) for path in timeline["critical_paths"]
+        )
+
     def test_debrief(self) -> None:
         outcome = PROVIDER.execute(PROVIDER.plan(PROVIDER.brief()))
         debrief = PROVIDER.debrief(outcome)

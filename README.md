@@ -29,17 +29,17 @@ Every module in `src/moonraker/`, one line each.
 
 | Module | What it computes |
 |---|---|
-| `shuttle_ops.py` | Critical Path Method over the hijack activity network — forward/backward pass, slack, critical path, cycle and dangling-dependency rejection, and feasibility against the point of no return |
-| `schedule_crashing.py` | Minimum-cost time-cost crashing: re-solve the CPM, buy down the cheapest critical activity a minute at a time, report cost, minutes bought, and whether the deadline is reachable at all |
-| `orbital_logistics.py` | Kepler period and circular speed, orbits per sidereal day, horizon/pass geometry, the deterministic ground launch-window series, and the consumables ↔ crew ↔ cadence model |
+| `shuttle_ops.py` | Critical Path Method over the hijack activity network — forward/backward pass, slack, the zero-slack activity set *and* the enumerated critical paths (the DRAX network has two), cycle and dangling-dependency rejection, and feasibility against the point of no return |
+| `schedule_crashing.py` | Minimum-cost time-cost crashing over a network *derived* from the canonical timeline: re-solve the CPM, buy down the cheapest zero-slack activity a minute at a time, report cost, minutes bought, and whether the deadline is reachable at all |
+| `orbital_logistics.py` | Kepler period and circular speed, orbits per sidereal day, horizon/pass geometry, the deterministic ground launch-window series and the horizon filter that bounds how many of them are usable, and the consumables ↔ crew ↔ cadence model |
 | `orbital_transfer.py` | Vis-viva, the Hohmann two-burn transfer and its time, the phase wait to the lead angle, the Tsiolkovsky mass ratio and propellant mass, and the deorbit burn |
 | `rendezvous.py` | Clohessy–Wiltshire relative motion in the LVLH frame: the 6×6 state transition, propagation, and the closed-form single-impulse intercept (raising at singular geometries) |
 | `centrifuge.py` | g↔rpm centripetal physics, the +Gz tolerance envelope, the ramp/sustain/decay profile builder, and the two-ceiling safety adjudication |
-| `centrifuge_training.py` | g·s exposure dosing, gradual-onset-rate tolerance scaling, and weekly session planning under daily and cumulative caps |
-| `mission_results.py` | The single canonical computation — mission parameters in, the flat token-keyed result set out. Everything downstream reads this |
+| `centrifuge_training.py` | g·s exposure dosing and weekly session planning under daily and cumulative caps. Gradual-onset-rate tolerance scaling is implemented and tested but **not** consumed by any published result — the reported regimen is onset-rate–independent |
+| `mission_results.py` | The single canonical computation — mission parameters in, the flat token-keyed result set out, assembled entirely from its seven `compute_*` factories. The mission adapter, the token map and the figures all read these |
 | `mission.py` | The BOND-API `MissionProvider` adapter and the module-level `GADGETS` registry |
 | `manuscript_variables.py` | Token-map hydration from `config.yaml` + results, and resolution of the manuscript tree into `output/manuscript/` |
-| `figures.py` | Five deterministic matplotlib figures under the headless `Agg` backend |
+| `figures.py` | Five deterministic matplotlib figures under the headless `Agg` backend, every value read from `mission_results` — the module declares no mission constant of its own |
 
 The first seven are the pure domain core: stdlib only, no `bond_api`, no
 `infrastructure`, no RNG, no wall-clock. They import and compute in isolation.

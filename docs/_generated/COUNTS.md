@@ -8,8 +8,8 @@ uv run pytest tests/ --cov=src --cov-fail-under=90 -q
 
 | Metric | Value | Measured |
 |---|---|---|
-| Passing tests | 178 | 2026-08-05 |
-| Line + branch coverage on `src/` | 99.91% | 2026-08-05 |
+| Passing tests | 241 | 2026-08-05 |
+| Line + branch coverage on `src/` | 99.92% | 2026-08-05 |
 | Failed / skipped | 0 / 0 | 2026-08-05 |
 | Mocks used | 0 | 2026-08-05 |
 

@@ -220,6 +220,7 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
         from .mission_results import (
             MISSION_DEFAULTS,
             compute_crash,
+            compute_schedule,
             compute_training,
             compute_transfer,
         )
@@ -231,20 +232,22 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
             orbits_per_day,
             sustainable_crew,
         )
-        from .shuttle_ops import DRAX_HIJACK_TIMELINE, compute_timeline, timeline_feasibility
 
         results: dict[str, Any] = {"steps_completed": 0, "outputs": []}
 
         for step in plan.steps:
             params: dict[str, Any] = {**MISSION_DEFAULTS, **step.params}
             if step.action == "critical_path":
-                schedule = compute_timeline(DRAX_HIJACK_TIMELINE)
-                feasible, margin = timeline_feasibility(schedule, float(params["deadline_min"]))
+                timeline = compute_schedule(params)
                 results["timeline"] = {
-                    "total_duration_min": schedule.total_duration_min,
-                    "critical_path": list(schedule.critical_path),
-                    "feasible": feasible,
-                    "margin_min": margin,
+                    "total_duration_min": timeline["total_duration_min"],
+                    # The zero-slack SET (a union when several critical paths
+                    # exist) and the enumerated paths themselves — reported
+                    # separately because they are not the same object.
+                    "critical_activities": list(timeline["critical_activities"]),
+                    "critical_paths": [list(chain) for chain in timeline["critical_chains"]],
+                    "feasible": timeline["feasible"],
+                    "margin_min": timeline["margin_min"],
                 }
             elif step.action == "launch_windows":
                 altitude = float(params["altitude_km"])

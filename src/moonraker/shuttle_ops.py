@@ -7,7 +7,12 @@ orbital insertion and docking with Drax's station — is an activity with a
 duration and a set of prerequisite activities. A forward pass computes the
 earliest start/finish of every activity, a backward pass computes the latest
 start/finish, and the slack reveals which phases are load-bearing (zero
-slack) on the critical path. Because the shuttle is a moving deadline (it
+slack). Those activities are reported two ways, because they are not the same
+object: :attr:`TimelineSchedule.critical_activities` is the *set* of zero-slack
+phases, and :attr:`TimelineSchedule.critical_chains` enumerates the distinct
+source-to-sink zero-slack *paths* through the network. A network can carry
+several equally-long critical paths, in which case the set is their union and
+is not itself traversable. Because the shuttle is a moving deadline (it
 reaches a point of no return the moment it commits to orbital insertion),
 the whole plan must fit inside a hard ``deadline`` before it is feasible.
 
@@ -70,7 +75,13 @@ class TimelineSchedule:
         latest_finish: activity name -> latest finish minute.
         slack: activity name -> total float in minutes (>= 0).
         total_duration_min: length of the critical path in minutes.
-        critical_path: ordered tuple of activity names with zero slack.
+        critical_activities: the zero-slack activity *set*, ordered by earliest
+            start. When the network carries more than one critical path this is
+            their union and consecutive entries need not be dependency-linked —
+            it is a set, not a route.
+        critical_chains: every distinct source-to-sink zero-slack *path*, each
+            an ordered tuple whose consecutive entries are real dependency
+            edges. ``len(critical_chains)`` is the number of critical paths.
     """
 
     earliest_start: dict[str, float]
@@ -79,7 +90,8 @@ class TimelineSchedule:
     latest_finish: dict[str, float]
     slack: dict[str, float]
     total_duration_min: float
-    critical_path: tuple[str, ...]
+    critical_activities: tuple[str, ...]
+    critical_chains: tuple[tuple[str, ...], ...]
 
 
 def _validate_network(activities: tuple[TimelineActivity, ...]) -> None:
@@ -167,6 +179,7 @@ def compute_timeline(activities: tuple[TimelineActivity, ...]) -> TimelineSchedu
         for name, _ in sorted(earliest_start.items(), key=lambda kv: (kv[1], kv[0]))
         if slack[name] <= 1e-9
     )
+    chains = _critical_chains(activities, earliest_start, earliest_finish, slack)
 
     return TimelineSchedule(
         earliest_start=earliest_start,
@@ -175,8 +188,53 @@ def compute_timeline(activities: tuple[TimelineActivity, ...]) -> TimelineSchedu
         latest_finish=latest_finish,
         slack=slack,
         total_duration_min=project_end,
-        critical_path=critical,
+        critical_activities=critical,
+        critical_chains=chains,
     )
+
+
+def _critical_chains(
+    activities: tuple[TimelineActivity, ...],
+    earliest_start: dict[str, float],
+    earliest_finish: dict[str, float],
+    slack: dict[str, float],
+    tol: float = 1e-9,
+) -> tuple[tuple[str, ...], ...]:
+    """Enumerate every distinct source-to-sink zero-slack path.
+
+    An edge ``dep -> activity`` lies on a critical path only when both ends have
+    zero slack *and* the edge is tight (``EF[dep] == ES[activity]``): a
+    zero-slack predecessor that finishes early is not driving its successor.
+    Walking that sub-DAG from every critical source to every critical sink
+    yields the real paths, so a union of two 57-minute routes is reported as two
+    paths rather than one seven-activity "chain" that cannot be traversed.
+    """
+    critical = {name for name, value in slack.items() if value <= tol}
+    tight_deps: dict[str, tuple[str, ...]] = {
+        a.name: tuple(
+            dep
+            for dep in a.depends_on
+            if dep in critical and abs(earliest_finish[dep] - earliest_start[a.name]) <= tol
+        )
+        for a in activities
+        if a.name in critical
+    }
+    successors: dict[str, list[str]] = {name: [] for name in critical}
+    for name, deps in tight_deps.items():
+        for dep in deps:
+            successors[dep].append(name)
+
+    chains: list[tuple[str, ...]] = []
+    stack: list[tuple[str, ...]] = [(name,) for name in sorted(critical) if not tight_deps[name]]
+    while stack:
+        path = stack.pop()
+        nxt = sorted(successors[path[-1]])
+        if not nxt:
+            chains.append(path)
+            continue
+        for successor in nxt:
+            stack.append((*path, successor))
+    return tuple(sorted(chains))
 
 
 def timeline_feasibility(schedule: TimelineSchedule, deadline_min: float) -> tuple[bool, float]:
