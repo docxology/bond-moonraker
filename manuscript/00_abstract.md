@@ -28,5 +28,6 @@ admit **{{TRAINING_RECOMMENDED}}** sessions of
 **{{TRAINING_PER_SESSION_GS}} g·s**.
 
 Every result is a closed-form, deterministic computation — no random draws, no
-external calls — enforcing the suite's reproducibility contract. Rendered
-{{GENERATION_TIMESTAMP}} on Python {{PYTHON_VERSION}} ({{PLATFORM}}).
+external calls, no wall clock — enforcing the suite's reproducibility contract.
+Manuscript dated {{MANUSCRIPT_DATE}}, rendered on Python {{PYTHON_VERSION}}
+({{PLATFORM}}).

@@ -2,13 +2,13 @@
 
 import json
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 import yaml
 
 from moonraker.manuscript_variables import (
+    UNDATED,
     generate_variables,
     load_mission_config,
     save_variables,
@@ -39,11 +39,27 @@ class TestGenerateVariables:
         variables = generate_variables(PROJECT_ROOT)
         assert all(isinstance(v, str) for v in variables.values())
 
-    def test_deterministic_with_fixed_now(self) -> None:
-        now = datetime(2026, 8, 4, 12, 0, tzinfo=timezone.utc)
-        v1 = generate_variables(PROJECT_ROOT, now=now)
-        v2 = generate_variables(PROJECT_ROOT, now=now)
+    def test_deterministic_across_calls(self) -> None:
+        """No injected clock: the map must be a pure function of the config.
+
+        The predecessor of this test passed a fixed ``now`` into both calls,
+        which made it structurally incapable of failing on the wall clock the
+        module actually read. See ``tests/test_regeneration_determinism.py``.
+        """
+        v1 = generate_variables(PROJECT_ROOT)
+        v2 = generate_variables(PROJECT_ROOT)
         assert v1 == v2
+
+    def test_manuscript_date_is_the_committed_config_date(self) -> None:
+        config = yaml.safe_load((_MANUSCRIPT / "config.yaml").read_text(encoding="utf-8"))
+        variables = generate_variables(PROJECT_ROOT)
+        assert variables["MANUSCRIPT_DATE"] == str(config["paper"]["date"])
+
+    def test_manuscript_date_falls_back_when_config_omits_it(self, tmp_path: Path) -> None:
+        manuscript = tmp_path / "manuscript"
+        manuscript.mkdir()
+        (manuscript / "config.yaml").write_text("paper:\n  title: Moonraker\n", encoding="utf-8")
+        assert generate_variables(tmp_path)["MANUSCRIPT_DATE"] == UNDATED
 
 
 class TestLiveCrossReference:

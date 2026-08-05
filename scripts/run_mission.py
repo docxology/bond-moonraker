@@ -6,8 +6,9 @@ results, writes ``output/data/mission_results.json``, and renders all five
 figures. The mission parameters are read once from ``manuscript/config.yaml``
 and handed to both the result computation and the figures, so the JSON, the
 manuscript tokens and the PNGs are all driven by the same numbers. Everything
-written under ``output/`` is regenerable and git-ignored, so re-runs are
-byte-identical.
+written under ``output/`` is regenerable and git-ignored, and no wall clock is
+read anywhere on that path, so re-runs on the same interpreter and platform are
+byte-identical (bound by ``tests/test_regeneration_determinism.py``).
 """
 
 from __future__ import annotations

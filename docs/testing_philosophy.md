@@ -92,9 +92,16 @@ reporting six.
 Fixed parameter sets, a fixed seed, no RNG anywhere in `src/`, and no wall-clock
 value in any persisted artifact (`Provenance.wall_time_s` is `0.0` on purpose —
 a timing figure would make otherwise-identical runs differ). `run_mission.py`
-restores a byte-identical `output/` tree on re-run, which is the determinism
-proof rather than a claim about it. Matplotlib runs under `Agg`, forced in
-`tests/conftest.py`, so figure tests do not depend on a display.
+followed by `z_generate_manuscript_variables.py` restores a byte-identical
+`output/` tree on re-run, on the same interpreter and platform; `PYTHON_VERSION`
+and `PLATFORM` are the only environment-derived token values.
+`tests/test_regeneration_determinism.py` makes that a proof rather than a claim
+about one: it regenerates twice into an isolated tree and SHA-256-compares every
+file, and it parses `src/moonraker/` and `scripts/` for wall-clock calls with a
+positive control so the parser cannot pass vacuously. It replaced a test that
+injected a fixed `now` into two calls and therefore could not fail on the
+`datetime.now()` the token map really read. Matplotlib runs under `Agg`, forced
+in `tests/conftest.py`, so figure tests do not depend on a display.
 
 ## Adding a test
 

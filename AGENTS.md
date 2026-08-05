@@ -45,8 +45,18 @@ uv run python scripts/z_generate_manuscript_variables.py  # tokens + resolved ma
 `z_generate_manuscript_variables.py` is strict by default: it requires
 `output/data/mission_results.json` (exit 2 if absent). Pass `--allow-draft` to
 relax that. Everything written under `output/` is regenerable and git-ignored;
-`run_mission.py` restores a byte-identical tree on re-run, which is the
-determinism proof.
+`run_mission.py` followed by `z_generate_manuscript_variables.py` restores a
+byte-identical tree on re-run — every file, on the same interpreter and
+platform. No module on that path reads the wall clock; the manuscript's date
+token, `MANUSCRIPT_DATE`, is the committed `paper.date` from
+`manuscript/config.yaml`. `PYTHON_VERSION` and `PLATFORM` are the only tokens
+read from the environment, so they (and only they) change across machines.
+`tests/test_regeneration_determinism.py` is the proof: it regenerates twice
+into an isolated tree and SHA-256-compares every file, and separately parses
+`src/moonraker/` and `scripts/` for wall-clock calls with a positive control.
+Do not add a `now` parameter or a `datetime.now()` back to
+`manuscript_variables.py` — that is the exact defect those tests exist to
+catch.
 
 ## Test & verify
 

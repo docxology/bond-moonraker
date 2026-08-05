@@ -23,10 +23,29 @@ Every module in this package is deterministic by construction:
   one reappears — so an outcome value, its injected token and the plotted
   figure cannot disagree.
 - Figures are rendered through the headless `Agg` backend with fixed inputs.
+- `moonraker/manuscript_variables.py` reads no wall clock. The manuscript's
+  date token, `MANUSCRIPT_DATE`, is the committed `paper.date` field of
+  `manuscript/config.yaml`, not the moment the generator ran, and
+  `generate_variables()` takes no `now` argument that could reintroduce one.
 
-Running `scripts/run_mission.py` restores a byte-identical `output/` tree. The
-only non-reproducible value in the manuscript is the generation timestamp,
-which is confined to the abstract and is injectable for tests.
+Running `scripts/run_mission.py` followed by
+`scripts/z_generate_manuscript_variables.py` restores a byte-identical
+`output/` tree — every file, on any later re-run, on the same interpreter and
+platform. The scope of that claim is exact: two token values, `PYTHON_VERSION`
+and `PLATFORM`, are read from the running interpreter, so they change if the
+package is regenerated on a different machine or Python build. Nothing else in
+the tree varies. Elapsed time in particular does not: `Provenance.wall_time_s`
+is pinned to `0.0` and no date or timestamp is sampled anywhere.
+
+`TestRegenerationIsByteIdentical` in `tests/test_regeneration_determinism.py`
+binds this end to end — it runs both scripts twice into an isolated tree and
+compares a SHA-256 of every regenerated file — and
+`TestNoWallClockInPersistedPath` parses every module under `src/moonraker/` and
+`scripts/` and fails on any wall-clock call, with a positive control proving
+the parser detects one when it is present. An earlier version of this section
+claimed byte-identity while the abstract carried a `datetime.now()` timestamp;
+the only test guarding it injected a fixed `now`, which is precisely why the
+contradiction survived.
 
 ## What a reader can re-derive
 

@@ -62,10 +62,14 @@ Above them: `mission_results.py` (the single canonical computation),
   `output/manuscript/`, not the templates.
 - **No mocks.** All tests use real computation; deterministic fakes implement
   the REAL protocol.
-- **Deterministic.** No untracked RNG, no wall-clock in persisted artifacts
-  (`Provenance.wall_time_s == 0.0`).
+- **Deterministic.** No untracked RNG, no wall-clock anywhere on the path that
+  writes `output/` (`Provenance.wall_time_s == 0.0`; the manuscript's
+  `MANUSCRIPT_DATE` is the committed `paper.date`, never `datetime.now()`).
+  `tests/test_regeneration_determinism.py` enforces both halves.
 - **Outputs are disposable.** Never hand-edit `output/` — regenerate with
-  `run_mission.py` (byte-identical on re-run).
+  `run_mission.py` + `z_generate_manuscript_variables.py` (byte-identical on
+  re-run for a given interpreter and platform; `PYTHON_VERSION` and `PLATFORM`
+  are the only environment-derived token values).
 - **Run from the package dir** so `scripts/` find `src/` via their sys.path
   bootstrap.
 

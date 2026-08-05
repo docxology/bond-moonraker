@@ -5,13 +5,18 @@ parameter block) and combines it with the deterministic mission results from
 :mod:`moonraker.mission_results` to produce the full ``{{TOKEN}}`` → value map
 used by the manuscript sections. Numeric metrics are ALWAYS computed — never
 hand-authored in prose — so the manuscript stays accurate when config changes.
+
+No wall clock is read anywhere in this module. The manuscript's date token is
+``MANUSCRIPT_DATE``, sourced from the committed ``paper.date`` field of
+``manuscript/config.yaml``, so regenerating the token map and the resolved
+manuscript tree yields byte-identical files no matter when the generator runs.
+``tests/test_regeneration_determinism.py`` binds that property.
 """
 
 from __future__ import annotations
 
 import json
 import platform
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -20,11 +25,17 @@ import yaml
 from .mission_results import MISSION_DEFAULTS, compute_mission_results
 
 __all__ = [
+    "UNDATED",
     "generate_variables",
     "save_variables",
     "load_mission_config",
     "write_resolved_manuscript_tree",
 ]
+
+#: Value of ``MANUSCRIPT_DATE`` when ``manuscript/config.yaml`` omits ``paper.date``.
+#: A literal placeholder rather than "today", so an undated config still
+#: regenerates byte-identically.
+UNDATED = "undated"
 
 
 def load_mission_config(project_root: Path) -> dict[str, Any]:
@@ -43,9 +54,14 @@ def load_mission_config(project_root: Path) -> dict[str, Any]:
 def generate_variables(
     project_root: Path,
     require_analysis_outputs: bool = False,
-    now: datetime | None = None,
 ) -> dict[str, str]:
     """Return the full deterministic manuscript token map.
+
+    The map is a pure function of ``manuscript/config.yaml`` and the running
+    interpreter's identity. There is deliberately **no** ``now`` parameter and
+    no wall-clock read: a date that varied per run would make the regenerated
+    ``output/`` tree differ from the previous one, breaking the byte-identical
+    re-run guarantee stated in ``manuscript/06_reproducibility.md``.
 
     Args:
         project_root: the package root (contains ``manuscript/`` and ``output/``).
@@ -53,8 +69,6 @@ def generate_variables(
             ``output/data/mission_results.json`` is absent (pipeline strict
             mode). Token values are still computed directly from the domain
             core, so the map is correct in either mode.
-        now: optional timestamp override (deterministic tests); defaults to the
-            current UTC time.
 
     Returns:
         A mapping of ``{{TOKEN}}`` names to string values.
@@ -78,7 +92,7 @@ def generate_variables(
     keywords = config.get("keywords", []) if isinstance(config.get("keywords"), list) else []
     mission = load_mission_config(project_root)
 
-    stamp = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M UTC")
+    manuscript_date = str(paper.get("date", UNDATED)) or UNDATED
     results = compute_mission_results(mission)
 
     variables: dict[str, str] = {
@@ -115,7 +129,7 @@ def generate_variables(
         "CONFIG_TRAINING_DAILY_CAP_GS": str(mission["training_daily_cap_g_s"]),
         "CONFIG_TRAINING_WEEKLY_CAP_GS": str(mission["training_weekly_cap_g_s"]),
         "CONFIG_TRAINING_SESSIONS": str(mission["training_sessions_per_week"]),
-        "GENERATION_TIMESTAMP": stamp,
+        "MANUSCRIPT_DATE": manuscript_date,
         "PYTHON_VERSION": platform.python_version(),
         "PLATFORM": platform.system(),
     }

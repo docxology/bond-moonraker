@@ -6,7 +6,7 @@ crashing, Kepler logistics, Hohmann transfer, Clohessy–Wiltshire rendezvous,
 +Gz centrifuge adjudication, exposure-capped training) are composed by one
 canonical computation (`mission_results.py`) that feeds the manuscript tokens,
 the figures and the frozen BOND-API `MissionProvider` adapter. Measured on
-2026-08-05 by `uv run pytest tests/ --cov=src --cov-fail-under=90`: **241 tests
+2026-08-05 by `uv run pytest tests/ --cov=src --cov-fail-under=90`: **249 tests
 passing, 0 failed, 0 skipped, 99.92% line+branch coverage on `src/`** (every
 module at 100.00% except `manuscript_variables.py` at 98.36%). `ruff check`,
 `ruff format --check` and `mypy src/ scripts/` are clean; zero mocks in
@@ -88,18 +88,28 @@ the function in strict mode, asserts it returns a map, and coverage on
 `manuscript_variables.py` reads 100.00%.
 **Command:** `uv run pytest tests/test_manuscript_variables.py --cov=src/moonraker/manuscript_variables.py --cov-report=term-missing -q`
 
-**V2 — the byte-identical re-run claim is asserted in prose but by no test.**
-`AGENTS.md:48-49` and `docs/testing_philosophy.md:95` state that
-`scripts/run_mission.py` "restores a byte-identical `output/` tree on re-run,
-which is the determinism proof". `tests/test_scripts_smoke.py:64-72` runs it
-**once** and checks that two files exist. Determinism is well covered one level
-down (`tests/test_figures.py:234` byte-compares rendered PNGs;
-`tests/test_mission.py:81` byte-compares two `execute` calls), but the
-end-to-end claim as written is unbound. **Done when** a test runs
-`run_mission.py` twice and compares a SHA-256 of every file under `output/`
-between the two runs — or the prose is narrowed to the per-artifact claims the
-existing tests do bind.
-**Command:** `uv run pytest tests/test_scripts_smoke.py -q`
+~~**V2 — the byte-identical re-run claim is asserted in prose but by no test.**~~
+**DONE 2026-08-05.** The claim was not merely unbound, it was **false**:
+`manuscript_variables.py` hydrated `GENERATION_TIMESTAMP` from
+`datetime.now(timezone.utc)` at minute resolution and rendered it into
+`00_abstract.md` and `manuscript_variables.json`, so two regenerations one
+minute apart produced different bytes (reproduced: `5565e1d7…` → `6620ea5f…`
+over the `output/` `*.json` + `*.md` set). The single test guarding determinism
+injected a fixed `now` into both calls and so could never fail on it.
+Resolution: the wall clock was removed from the persisted path entirely. The
+token is now `MANUSCRIPT_DATE`, read from the committed `paper.date` in
+`manuscript/config.yaml`; `generate_variables()` no longer accepts a `now`
+argument. `tests/test_regeneration_determinism.py` binds the claim two ways —
+a full double regeneration into an isolated tree with a SHA-256 compare of
+every file, and an AST parse of `src/moonraker/` + `scripts/` for wall-clock
+calls carrying a positive control and a non-empty-scan-set assertion. Four
+tests were confirmed to go red when the `datetime.now()` was temporarily
+reintroduced. The prose in `manuscript/06_reproducibility.md`, `AGENTS.md`,
+`docs/testing_philosophy.md`, `scripts/CONVENTIONS.md` and
+`scripts/run_mission.py` now states the guarantee with its exact scope:
+`PYTHON_VERSION` and `PLATFORM` are the only environment-derived values, so
+byte-identity holds per interpreter and platform.
+**Command:** `uv run pytest tests/test_regeneration_determinism.py -q`
 
 ### Documentation
 
