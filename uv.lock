@@ -714,8 +714,6 @@ source = { editable = "." }
 dependencies = [
     { name = "bond-api" },
     { name = "matplotlib" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pyyaml" },
 ]
 
@@ -733,7 +731,6 @@ requires-dist = [
     { name = "bond-api", directory = "/Users/4d/Documents/GitHub/template/projects/working/bond/bond-api" },
     { name = "matplotlib", specifier = ">=3.7.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8.0" },
-    { name = "numpy", specifier = ">=1.24.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },

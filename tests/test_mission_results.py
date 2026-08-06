@@ -30,6 +30,10 @@ class TestComputeMissionResults:
             "CENTRIFUGE_SAFE",
             "CENTRIFUGE_VERDICT",
             "CENTRIFUGE_EXCEEDANCE_S",
+            "REMEDIATION_SUSTAIN_S",
+            "REMEDIATION_SAFE",
+            "REMEDIATION_VERDICT",
+            "REMEDIATION_REDUCTION_S",
             "TRANSFER_DV1_KMS",
             "TRANSFER_DV2_KMS",
             "TRANSFER_TOTAL_DV_KMS",
@@ -83,6 +87,24 @@ class TestComputeMissionResults:
         assert results["CENTRIFUGE_SAFE"] == "yes"
         assert results["CENTRIFUGE_VERDICT"] == "certified"
         assert results["CENTRIFUGE_EXCEEDANCE_S"] < 0
+
+    def test_remediation_is_certified_by_construction(self) -> None:
+        """The computed remediation holds the plateau at the allowance and passes.
+
+        The published negative verdict implies ``hold the plateau at or below
+        the allowance``; this binds the first-class token that states the fix,
+        so the remediation cannot quietly stop being certified.
+        """
+        results = compute_mission_results()
+        assert results["CENTRIFUGE_VERDICT"] == "not certified"
+        assert results["REMEDIATION_SAFE"] == "yes"
+        assert results["REMEDIATION_VERDICT"] == "certified"
+        # The remediated plateau is exactly the governing allowance.
+        assert results["REMEDIATION_SUSTAIN_S"] == results["CENTRIFUGE_ALLOWABLE_S"]
+        # Cutting the plateau by the published exceedance reaches the allowance.
+        assert results["REMEDIATION_REDUCTION_S"] == pytest.approx(
+            results["CENTRIFUGE_EXCEEDANCE_S"]
+        )
 
     def test_defaults_feasible(self) -> None:
         results = compute_mission_results()

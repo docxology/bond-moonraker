@@ -12,7 +12,8 @@ with closed-form answers and full provenance.
 The hijack plan is **{{SHUTTLE_FEASIBLE}}** inside its
 {{CONFIG_DEADLINE_MIN}}-minute deadline and can be crashed to
 **{{CRASH_DEADLINE_MIN}} minutes** for **{{CRASH_TOTAL_COST}}**; the station's
-logistics sustain **{{ORBIT_SUSTAINABLE_CREW}} crew** with a
+logistics admit up to **{{ORBIT_SUSTAINABLE_CREW}}** per resupply cycle as a
+ceiling (its own crew is {{CONFIG_CREW}}) with a
 **{{TRANSFER_TOTAL_DV_KMS}} km/s** resupply transfer; and the weekly regimen
 admits **{{TRAINING_RECOMMENDED}}** sessions under the exposure caps.
 

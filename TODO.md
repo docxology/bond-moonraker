@@ -268,3 +268,105 @@ git status --short                                       # expect: empty (output
 `docs/_generated/COUNTS.md` holds the measured counts and is regenerated from
 the gate — update it there, and do not quote test counts or coverage anywhere
 else in prose.
+
+
+## Round-2 (2026-08-06)
+
+Round-2 improvement pass: closed the silent-drop defect class in the mission
+adapter, removed an unused dependency, pushed `src/` coverage to 100.00%, and
+deepened the manuscript (consolidated results table, computed centrifuge
+remediation, crew-ceiling honesty).
+
+### Findings and fixes (each with regression evidence)
+
+- **R2-1 (fixes TODO C1) — `execute()`'s `launch_windows` branch silently
+  dropped the canonical orbit keys.** It read the short keys `altitude_km` and
+  `num_windows` while `MISSION_DEFAULTS`/`config.yaml` name `station_altitude_km`
+  and `launch_horizon_h`, so a step setting the canonical name was accepted and
+  ignored, and the window count was an input echo rather than a horizon-filtered
+  result. **Fix:** the branch now resolves through `compute_orbit(params)` via a
+  new `mission._normalise_params` alias layer (`altitude_km → station_altitude_km`,
+  etc.), and the plan step uses the canonical keys. Both spellings now move the
+  computation. **Evidence:** `tests/test_mission.py::TestCanonicalStepParamsAreHonoured`
+  (`test_launch_windows_honours_station_altitude`: `station_altitude_km=700`
+  moves `period_s` off 350 km and the `altitude_km` alias does the same;
+  `test_launch_windows_reports_horizon_bounded_windows`).
+
+- **R2-2 (fixes TODO C2) — the `g_profile` branch ignored
+  `centrifuge_margin_fraction`.** It called `profile_is_safe` without the margin,
+  so a step that varied the margin had no effect. **Fix:** the branch now
+  resolves through `compute_centrifuge(params)`, which applies the configured
+  margin under the same rule as the published result. **Evidence:**
+  `test_centrifuge_margin_fraction_honoured_by_g_profile_step` asserts
+  `allowable_s` moves with the margin and equals `compute_centrifuge` under the
+  same value.
+
+- **R2-3 (sibling defect, same class) — the `schedule_crash` and
+  `training_cycle` plan steps named short/non-canonical keys that the factories
+  did not read.** `schedule_crash` set `deadline_min` while `compute_crash`
+  reads `crash_deadline_min`; `training_cycle` set `sessions_per_week` /
+  `daily_cap_g_s` / `weekly_cap_g_s` while `compute_training` reads the
+  `training_*` spellings. Both only worked because the defaults coincided.
+  **Fix:** plan steps use canonical keys; the alias layer honours both.
+  **Evidence:** `test_schedule_crash_honours_canonical_deadline` (a tighter
+  `crash_deadline_min` saves more minutes) and
+  `test_training_cycle_honours_session_count` (4 vs 2 sessions doubles weekly
+  exposure).
+
+- **R2-4 (fixes TODO C3) — `numpy` was a declared dependency with no importer.**
+  Removed `numpy>=1.24.0` from `pyproject.toml` (matplotlib supplies it
+  transitively); re-synced and the full gate passes. `manuscript/05` now lists
+  only the declared deps.
+
+- **R2-5 (fixes TODO V1) — the strict-mode guard's positive branch was the one
+  uncovered line in the package.** Added `test_strict_mode_proceeds_when_outputs_exist`
+  (`tests/test_manuscript_variables.py`), which builds a `tmp_path` tree with a
+  real `mission_results.json`, calls `generate_variables(..., require_analysis_outputs=True)`
+  and asserts it returns a map. `manuscript_variables.py` coverage is now
+  100.00% line+branch.
+
+- **R2-6 (resolves TODO E4) — centrifuge remediation is now a first-class,
+  computed result.** New `mission_results.compute_remediation` factory rebuilds
+  the profile with the plateau at the governing allowance and verifies it is
+  certified by construction; four `REMEDIATION_*` tokens (`REMEDIATION_SUSTAIN_S`,
+  `_SAFE`, `_VERDICT`, `_REDUCTION_S`) join the token map and the consolidated
+  results table. **Evidence:** `test_remediation_is_certified_by_construction`
+  (`REMEDIATION_VERDICT == "certified"`, `REMEDIATION_SUSTAIN_S ==
+  CENTRIFUGE_ALLOWABLE_S`, `REMEDIATION_REDUCTION_S == CENTRIFUGE_EXCEEDANCE_S`).
+
+- **R2-7 (resolves TODO D1) — `docs/architecture.md` now states the real data
+  flow.** The `execute()` paragraph documents factory resolution plus the
+  `_normalise_params` alias layer, matching the diagram.
+
+- **R2-8 (resolves TODO D2) — the `ORBIT_SUSTAINABLE_CREW` = 450 figure is now
+  framed honestly.** The abstract, results and conclusion state it is a
+  per-cycle logistics ceiling (`capacity / (cadence × per-capita rate)`), not a
+  habitability figure, and distinguish it from the 450-day stores figure and the
+  configured crew of 6. A consolidated, token-bound results table was added to
+  §Results.
+
+### Gate numbers (2026-08-06)
+
+```bash
+uv run pytest tests/ --cov=src --cov-fail-under=90 -q   # 256 passed, 0 failed, 0 skipped, 100.00% coverage
+uv run ruff check src/ scripts/ tests/                 # All checks passed!
+uv run ruff format --check src/ scripts/ tests/        # 42 files already formatted
+uv run mypy src/ scripts/                              # Success: no issues found in 19 source files
+grep -rn "MagicMock|mocker.patch|unittest.mock" tests/  # no mocks: clean
+```
+
+### Left for a future round
+
+- **E1 (open) — `gor_tolerance_multiplier` is still a knob nothing published
+  consumes.** The honest caveat stands in `manuscript/02` and `07`. Wiring it in
+  would move the reported allowance/session count and re-pin hand arithmetic; it
+  was left untouched this round to avoid disturbing published values.
+- **E2 (open) — multi-burn rendezvous.** `single_impulse_intercept` still raises
+  at the geometric singularities; a two-burn Lambert-style solver would return a
+  finite Δv there.
+- **E3 (open) — stochastic (PERT) activity durations.** `SHUTTLE_TOTAL_MIN`
+  still has no confidence interval; the deterministic CPM total is the stated
+  mean case.
+- **E5 (open) — `bond-utilities` provenance delegation.** `mission.py` still
+  builds its `Provenance` record inline rather than delegating to
+  `bond_utilities.mission_io.record_provenance_outcome`.

@@ -47,7 +47,8 @@ uv run python scripts/z_generate_manuscript_variables.py  # tokens + resolved tr
 ## Software environment
 
 - Python {{PYTHON_VERSION}} on {{PLATFORM}}.
-- Dependencies: `numpy`, `matplotlib`, `pyyaml`, and `bond-api` (the frozen
-  BOND suite protocol).
+- Declared dependencies: `matplotlib`, `pyyaml`, and `bond-api` (the frozen
+  BOND suite protocol); `numpy` is pulled transitively by matplotlib and is not
+  imported by any module in this package.
 - Determinism: fixed parameter set, no random draws, no wall-clock inputs in
   any persisted artifact.

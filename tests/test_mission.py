@@ -189,3 +189,104 @@ class TestPlanParametersAreHonoured:
             return crew
 
         assert _crew(10800.0) == 2 * _crew(5400.0)
+
+
+class TestCanonicalStepParamsAreHonoured:
+    """Plan-step parameters must be honoured end to end, not silently dropped.
+
+    These pin the round-2 fixes for the executes' ``launch_windows`` and
+    ``g_profile`` branches (and their siblings), which used to read short,
+    non-canonical keys and drop a step that set the canonical name. Each branch
+    now resolves through the canonical factories, so both the canonical spelling
+    and the legacy alias move the computation.
+    """
+
+    def test_launch_windows_honours_station_altitude(self) -> None:
+        from bond_api.protocol import MissionPlan, Step
+
+        def _period(params: dict[str, float]) -> float:
+            plan = MissionPlan(
+                steps=(Step(name="orbital_windows", action="launch_windows", params=params),)
+            )
+            return PROVIDER.execute(plan).results["orbit"]["period_s"]
+
+        base = _period({"station_altitude_km": 350.0})
+        higher = _period({"station_altitude_km": 700.0})
+        assert higher > base  # higher orbit -> longer Kepler period
+        # The legacy short spelling must move it identically, not be dropped.
+        assert _period({"altitude_km": 700.0}) == pytest.approx(higher)
+        assert higher != pytest.approx(base)
+
+    def test_launch_windows_reports_horizon_bounded_windows(self) -> None:
+        """The adapter's window list is horizon-filtered, matching compute_orbit."""
+        from bond_api.protocol import MissionPlan, Step
+
+        plan = MissionPlan(
+            steps=(Step(name="orbital_windows", action="launch_windows", params={}),)
+        )
+        windows = PROVIDER.execute(plan).results["orbit"]["windows"]
+        assert windows  # non-empty under the shipped 4 h horizon
+        for open_s, close_s in windows:
+            assert close_s > open_s
+
+    def test_centrifuge_margin_fraction_honoured_by_g_profile_step(self) -> None:
+        """``allowable_s`` must follow the step's margin, under the published rule."""
+        from bond_api.protocol import MissionPlan, Step
+
+        from moonraker.mission_results import MISSION_DEFAULTS, compute_centrifuge
+
+        def _allowable(margin: float) -> float:
+            plan = MissionPlan(
+                steps=(
+                    Step(
+                        name="centrifuge",
+                        action="g_profile",
+                        params={"centrifuge_margin_fraction": margin},
+                    ),
+                )
+            )
+            return PROVIDER.execute(plan).results["centrifuge"]["allowable_s"]
+
+        tight = _allowable(0.5)
+        loose = _allowable(0.0)
+        assert tight < loose
+        # Must equal the published factory under the same margin — same rule.
+        merged = {**MISSION_DEFAULTS, "centrifuge_margin_fraction": 0.5}
+        assert tight == pytest.approx(compute_centrifuge(merged)["allowable_s"])
+
+    def test_schedule_crash_honours_canonical_deadline(self) -> None:
+        from bond_api.protocol import MissionPlan, Step
+
+        def _run(deadline: float) -> dict[str, object]:
+            plan = MissionPlan(
+                steps=(
+                    Step(
+                        name="crash",
+                        action="schedule_crash",
+                        params={"crash_deadline_min": deadline},
+                    ),
+                )
+            )
+            return PROVIDER.execute(plan).results["crash"]
+
+        loose = _run(55.0)
+        tight = _run(48.0)
+        assert tight["feasible"] is True
+        assert tight["saved_min"] > loose["saved_min"]  # type: ignore[operator]
+
+    def test_training_cycle_honours_session_count(self) -> None:
+        from bond_api.protocol import MissionPlan, Step
+
+        def _weekly(sessions: int) -> float:
+            plan = MissionPlan(
+                steps=(
+                    Step(
+                        name="training",
+                        action="training_cycle",
+                        params={"training_sessions_per_week": sessions},
+                    ),
+                )
+            )
+            return PROVIDER.execute(plan).results["training"]["weekly_g_s"]
+
+        assert _weekly(4) == pytest.approx(_weekly(2) * 2.0)

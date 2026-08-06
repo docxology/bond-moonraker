@@ -42,6 +42,8 @@ from bond_api.protocol import (
 )
 from bond_api.registry import GadgetRegistry
 
+from .mission_results import MISSION_DEFAULTS
+
 __all__ = ["FILM", "CODENAME", "GADGETS", "MissionProvider", "PROVIDER", "provider"]
 
 #: Package identity consumed by provenance and the orchestrator.
@@ -168,12 +170,16 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                 Step(
                     name="orbital_windows",
                     action="launch_windows",
-                    params={"altitude_km": 350.0, "num_windows": 6},
+                    params={"station_altitude_km": 350.0, "launch_horizon_h": 4.0},
                 ),
                 Step(
                     name="centrifuge",
                     action="g_profile",
-                    params={"target_g": 6.0, "radius_m": 8.0, "sustain_s": 12.0},
+                    params={
+                        "centrifuge_target_g": 6.0,
+                        "centrifuge_radius_m": 8.0,
+                        "centrifuge_sustain_s": 12.0,
+                    },
                 ),
                 Step(
                     name="rendezvous_transfer",
@@ -189,15 +195,15 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                     name="training_cycle",
                     action="training_cycle",
                     params={
-                        "sessions_per_week": 4,
-                        "daily_cap_g_s": 150.0,
-                        "weekly_cap_g_s": 400.0,
+                        "training_sessions_per_week": 4,
+                        "training_daily_cap_g_s": 150.0,
+                        "training_weekly_cap_g_s": 400.0,
                     },
                 ),
                 Step(
                     name="schedule_crash",
                     action="schedule_crash",
-                    params={"deadline_min": 50.0},
+                    params={"crash_deadline_min": 50.0},
                 ),
             )
         )
@@ -207,36 +213,33 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
 
         The computation branch on ``step.action`` runs the matching pure-domain
         algorithm and accumulates its metrics into ``results``. Every branch
-        resolves its inputs from :data:`~moonraker.mission_results.MISSION_DEFAULTS`
-        overridden by ``step.params``, so a plan that varies a parameter varies
-        the whole computation rather than only the part that happens to read it.
+        resolves its inputs through the canonical factories in
+        :mod:`moonraker.mission_results`, starting from
+        :data:`~moonraker.mission_results.MISSION_DEFAULTS` overridden by the
+        step's params, so a plan that varies a parameter varies the whole
+        computation rather than only the part that happens to read it. Legacy
+        short spellings of a canonical parameter (e.g. ``radius_m`` for
+        ``centrifuge_radius_m``) are normalised by :func:`_normalise_params`, so
+        neither spelling is silently dropped.
 
         Raises:
             ValueError: when a step names an action this provider cannot run.
                 A silently-skipped step would inflate ``steps_completed`` and
                 report a success that was never computed.
         """
-        from .centrifuge import build_training_profile, profile_is_safe
         from .mission_results import (
-            MISSION_DEFAULTS,
+            compute_centrifuge,
             compute_crash,
+            compute_orbit,
             compute_schedule,
             compute_training,
             compute_transfer,
-        )
-        from .orbital_logistics import (
-            circular_speed,
-            consumables_days,
-            launch_windows,
-            orbital_period,
-            orbits_per_day,
-            sustainable_crew,
         )
 
         results: dict[str, Any] = {"steps_completed": 0, "outputs": []}
 
         for step in plan.steps:
-            params: dict[str, Any] = {**MISSION_DEFAULTS, **step.params}
+            params: dict[str, Any] = _normalise_params(step.params)
             if step.action == "critical_path":
                 timeline = compute_schedule(params)
                 results["timeline"] = {
@@ -250,45 +253,29 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
                     "margin_min": timeline["margin_min"],
                 }
             elif step.action == "launch_windows":
-                altitude = float(params["altitude_km"])
-                windows = launch_windows(altitude, num_windows=int(params["num_windows"]))
-                period = orbital_period(altitude)
+                # Resolved through compute_orbit so the altitude, horizon and
+                # consumables all follow the canonical keys (and their aliases).
+                orbit = compute_orbit(params)
                 results["orbit"] = {
-                    "period_s": period,
-                    "speed_km_s": circular_speed(altitude),
-                    "orbits_per_day": orbits_per_day(altitude),
-                    "windows": [(w.open_s, w.close_s) for w in windows],
-                    "consumables_days_crew": consumables_days(
-                        float(params["capacity_kg"]),
-                        int(params["crew"]),
-                        float(params["rate_kg_per_person_day"]),
-                    ),
-                    "sustainable_crew": sustainable_crew(
-                        float(params["capacity_kg"]),
-                        float(params["resupply_interval_days"]),
-                        float(params["rate_kg_per_person_day"]),
-                    ),
+                    "period_s": orbit["period_s"],
+                    "speed_km_s": orbit["speed_km_s"],
+                    "orbits_per_day": orbit["orbits_per_day"],
+                    "windows": [(w.open_s, w.close_s) for w in orbit["windows"]],
+                    "horizon_h": orbit["horizon_h"],
+                    "consumables_days": orbit["consumables_days"],
+                    "sustainable_crew": orbit["sustainable_crew"],
                 }
             elif step.action == "g_profile":
-                radius_m = float(params["radius_m"])
-                profile = build_training_profile(
-                    target_g=float(params["target_g"]),
-                    radius_m=radius_m,
-                    sustain_s=float(params["sustain_s"]),
-                    ramp_rate_g_per_s=float(params["ramp_rate_g_per_s"]),
-                    decay_rate_g_per_s=float(params["decay_rate_g_per_s"]),
-                )
-                safe, metrics = profile_is_safe(
-                    profile,
-                    g_limit=float(params["g_limit"]),
-                    duration_limit_s=float(params["duration_limit_s"]),
-                )
+                # Resolved through compute_centrifuge so the safety margin is
+                # governed by the same rule (and margin_fraction) as the
+                # published result.
+                cent = compute_centrifuge(params)
                 results["centrifuge"] = {
-                    "peak_g": profile.peak_g,
-                    "sustain_s": profile.sustain_duration_s,
-                    "safe": safe,
-                    "allowable_s": metrics["allowable_s"],
-                    "rpm": _rpm_for(profile.peak_g, radius_m),
+                    "peak_g": cent["profile"].peak_g,
+                    "sustain_s": cent["profile"].sustain_duration_s,
+                    "safe": cent["safe"],
+                    "allowable_s": cent["allowable_s"],
+                    "rpm": cent["rpm"],
                 }
             elif step.action == "hohmann_transfer":
                 results["transfer"] = compute_transfer(params)
@@ -336,11 +323,33 @@ class MissionProvider:  # noqa: N801 — name fixed by the discovery contract
         )
 
 
-def _rpm_for(g: float, radius_m: float) -> float:
-    """Small local helper mapping peak-g back to centrifuge RPM."""
-    from .centrifuge import rpm_for_g
+#: Legacy/short plan-step parameter spellings mapped onto the canonical
+#: :data:`moonraker.mission_results.MISSION_DEFAULTS` names. The adapter honours
+#: either spelling so a plan step never silently drops a parameter; without this
+#: a step that named the short key while the factories read the canonical key
+#: would have its override ignored.
+_PARAM_ALIASES: dict[str, str] = {
+    "altitude_km": "station_altitude_km",
+    "target_g": "centrifuge_target_g",
+    "radius_m": "centrifuge_radius_m",
+    "sustain_s": "centrifuge_sustain_s",
+    "sessions_per_week": "training_sessions_per_week",
+    "daily_cap_g_s": "training_daily_cap_g_s",
+    "weekly_cap_g_s": "training_weekly_cap_g_s",
+}
 
-    return rpm_for_g(g, radius_m)
+
+def _normalise_params(step_params: dict[str, Any]) -> dict[str, Any]:
+    """Merge a plan step's params over ``MISSION_DEFAULTS``, honouring aliases.
+
+    Steps start from the canonical defaults; each step param is written under
+    its canonical name (the short spelling is translated via
+    :data:`_PARAM_ALIASES`), and unknown keys pass through untouched.
+    """
+    merged = dict(MISSION_DEFAULTS)
+    for key, value in step_params.items():
+        merged[_PARAM_ALIASES.get(key, key)] = value
+    return merged
 
 
 #: Convenience singleton so scripts and the orchestrator can grab a provider.

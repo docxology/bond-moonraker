@@ -15,8 +15,9 @@ The shuttle hijack plan completes in **{{SHUTTLE_TOTAL_MIN}} minutes** across
 point of no return (margin **{{SHUTTLE_MARGIN_MIN}} min**), and can be crashed
 to a **{{CRASH_DEADLINE_MIN}}-minute** deadline at a cost of
 **{{CRASH_TOTAL_COST}}**. The DRAX station at {{CONFIG_STATION_ALTITUDE_KM}} km
-has an orbital period of {{ORBIT_PERIOD_S}} s and sustains
-**{{ORBIT_SUSTAINABLE_CREW}} crew** on the configured resupply cadence. A
+has an orbital period of {{ORBIT_PERIOD_S}} s and admits up to
+**{{ORBIT_SUSTAINABLE_CREW}}** per resupply cycle as a logistics ceiling (the
+station's own crew is {{CONFIG_CREW}}) on the configured cadence. A
 Hohmann resupply transfer costs **{{TRANSFER_TOTAL_DV_KMS}} km/s** over
 **{{TRANSFER_TIME_MIN}} minutes**, needing **{{TRANSFER_PROPELLANT_KG}} kg** of
 propellant; the final Clohessy–Wiltshire approach requires a

@@ -49,6 +49,7 @@ __all__ = [
     "compute_schedule",
     "compute_orbit",
     "compute_centrifuge",
+    "compute_remediation",
     "compute_transfer",
     "compute_rendezvous",
     "compute_training",
@@ -162,6 +163,48 @@ def compute_centrifuge(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def compute_remediation(params: dict[str, Any]) -> dict[str, Any]:
+    """Canonical centrifuge remediation: the plateau that would certify the run.
+
+    The DRAX plateau overruns the governing allowance, so the model's implied
+    fix is to hold the plateau at exactly the allowance. This factory makes that
+    recommendation a first-class, computed result instead of a number a reader
+    has to infer: it rebuilds the profile with ``sustain_s`` set to the
+    allowance and returns whether the remediated run is certified by
+    construction (``profile_is_safe`` under the same rules as
+    :func:`compute_centrifuge`).
+
+    Returns:
+        ``safe`` (True when the remediated profile passes), ``peak_g`` (the
+        unchanged peak), ``sustain_s`` (the plateau that passes) and
+        ``reduction_s`` (how much the plateau must be cut from the original).
+    """
+    base = compute_centrifuge(params)
+    allowable = base["allowable_s"]
+    radius_m = float(params["centrifuge_radius_m"])
+    target_g = float(params["centrifuge_target_g"])
+    certified = build_training_profile(
+        target_g=target_g,
+        radius_m=radius_m,
+        sustain_s=allowable,
+        ramp_rate_g_per_s=float(params["ramp_rate_g_per_s"]),
+        decay_rate_g_per_s=float(params["decay_rate_g_per_s"]),
+    )
+    safe, _metrics = profile_is_safe(
+        certified,
+        float(params["g_limit"]),
+        float(params["duration_limit_s"]),
+        margin_fraction=float(params["centrifuge_margin_fraction"]),
+    )
+    return {
+        "profile": certified,
+        "safe": safe,
+        "peak_g": certified.peak_g,
+        "sustain_s": allowable,
+        "reduction_s": base["profile"].sustain_duration_s - allowable,
+    }
+
+
 def compute_transfer(params: dict[str, Any]) -> dict[str, Any]:
     """Canonical Hohmann-transfer + propellant + deorbit metrics for the resupply.
 
@@ -267,6 +310,7 @@ def compute_mission_results(params: dict[str, Any] | None = None) -> dict[str, A
     timeline = compute_schedule(p)
     orbit = compute_orbit(p)
     centrifuge = compute_centrifuge(p)
+    remediation = compute_remediation(p)
     transfer = compute_transfer(p)
     rendezvous = compute_rendezvous(p)
     training = compute_training(p)
@@ -298,6 +342,11 @@ def compute_mission_results(params: dict[str, Any] | None = None) -> dict[str, A
         "CENTRIFUGE_SAFE": "yes" if centrifuge["safe"] else "no",
         "CENTRIFUGE_VERDICT": "certified" if centrifuge["safe"] else "not certified",
         "CENTRIFUGE_EXCEEDANCE_S": round(centrifuge["exceedance_s"], 2),
+        # Computed remediation: holding the plateau at the governing allowance.
+        "REMEDIATION_SUSTAIN_S": round(remediation["sustain_s"], 2),
+        "REMEDIATION_SAFE": "yes" if remediation["safe"] else "no",
+        "REMEDIATION_VERDICT": "certified" if remediation["safe"] else "not certified",
+        "REMEDIATION_REDUCTION_S": round(remediation["reduction_s"], 2),
         # Orbital transfer / rendezvous.
         "TRANSFER_DV1_KMS": round(transfer["dv1_km_s"], 4),
         "TRANSFER_DV2_KMS": round(transfer["dv2_km_s"], 4),

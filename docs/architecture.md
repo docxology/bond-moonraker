@@ -182,12 +182,17 @@ The five lifecycle stages:
    string and a params dict: `critical_path`, `launch_windows`, `g_profile`,
    `hohmann_transfer`, `training_cycle`, `schedule_crash`.
 4. **`execute(MissionPlan) -> MissionOutcome`** — dispatches on `step.action`.
-   Every branch resolves its inputs as `{**MISSION_DEFAULTS, **step.params}`, so
-   a plan that varies a parameter varies the whole computation rather than only
-   the part that happens to read it. An **unknown action raises `ValueError`**;
-   silently skipping it would inflate `steps_completed` and report a success
-   that was never computed. Provenance carries the package version, the seed,
-   `wall_time_s=0.0` and a stable SHA-256 `input_hash` over the serialized plan.
+   Every branch resolves its inputs through the `mission_results` factories,
+   starting from `{**MISSION_DEFAULTS, **normalise(step.params)}`. A legacy short
+   spelling of a canonical parameter (`radius_m` for `centrifuge_radius_m`,
+   `altitude_km` for `station_altitude_km`, `sessions_per_week` for
+   `training_sessions_per_week`, …) is translated by `mission._normalise_params`,
+   so a plan that varies a parameter — under either spelling — varies the whole
+   computation rather than only the part that happens to read it. An **unknown
+   action raises `ValueError`**; silently skipping it would inflate
+   `steps_completed` and report a success that was never computed. Provenance
+   carries the package version, the seed, `wall_time_s=0.0` and a stable SHA-256
+   `input_hash` over the serialized plan.
 5. **`debrief(MissionOutcome) -> Debrief`** — the standing DRAX lessons plus
    values pulled from the outcome.
 

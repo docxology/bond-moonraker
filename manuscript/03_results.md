@@ -1,7 +1,26 @@
 # Results
 
 All numbers below are computed by `moonraker/mission_results.py` and injected
-as tokens — the manuscript never hand-authors a metric.
+as tokens — the manuscript never hand-authors a metric. The consolidated table
+collects the headline values; each is a live token whose resolved value appears
+in `output/manuscript/03_results.md`.
+
+| Concept | Metric | Value |
+|---|---|---|
+| Hijack timeline | Total duration | {{SHUTTLE_TOTAL_MIN}} min |
+| Hijack timeline | Distinct critical paths | {{SHUTTLE_CRITICAL_PATH_COUNT}} |
+| Crashed to deadline | Final duration | {{CRASH_FINAL_MIN}} min |
+| Crashed to deadline | Minimum crash cost | {{CRASH_TOTAL_COST}} |
+| Station | Orbital period | {{ORBIT_PERIOD_S}} s |
+| Station | Usable windows ({{CONFIG_LAUNCH_HORIZON_H}} h) | {{ORBIT_WINDOW_COUNT}} |
+| Station | Stores depletion | {{ORBIT_CONSUMABLES_DAYS}} days |
+| Station | Sustainable crew (per cycle) | {{ORBIT_SUSTAINABLE_CREW}} |
+| Transfer | Total Δv | {{TRANSFER_TOTAL_DV_KMS}} km/s |
+| Transfer | Propellant | {{TRANSFER_PROPELLANT_KG}} kg |
+| Rendezvous | Intercept impulse | {{RENDEZVOUS_IMPULSE_M_S}} m/s |
+| Centrifuge | Peak / allowance | {{CENTRIFUGE_PEAK_G}} g / {{CENTRIFUGE_ALLOWABLE_S}} s |
+| Centrifuge | Verdict / remediation | {{CENTRIFUGE_VERDICT}} / {{REMEDIATION_VERDICT}} |
+| Training | Sessions admitted per week | {{TRAINING_RECOMMENDED}} |
 
 ## Shuttle hijack timeline
 
@@ -40,8 +59,14 @@ the station lengthens the period and drops the count, and a horizon shorter
 than a single pass admits none. With
 {{CONFIG_CAPACITY_KG}} kg of consumables delivered and a per-capita rate of
 {{CONFIG_RATE_KG_PERSON_DAY}} kg/person/day, the stores last
-**{{ORBIT_CONSUMABLES_DAYS}} days** and sustain **{{ORBIT_SUSTAINABLE_CREW}}**
-crew on the {{CONFIG_RESUPPLY_INTERVAL_DAYS}}-day resupply cadence.
+**{{ORBIT_CONSUMABLES_DAYS}} days** — the depletion horizon for the configured
+{{CONFIG_CREW}} crew — and a single resupply can sustain up to
+**{{ORBIT_SUSTAINABLE_CREW}}** people for the {{CONFIG_RESUPPLY_INTERVAL_DAYS}}-day
+cadence. That last figure is a **per-cycle logistics ceiling, not a
+habitability claim**: it is capacity divided by (cadence × per-capita rate),
+and the station's own crew is the far smaller {{CONFIG_CREW}}. It is also
+deliberately distinct from the {{ORBIT_CONSUMABLES_DAYS}}-day stores figure:
+the two only coincide at the shipped cadence and crew.
 
 ![Orbital period versus altitude with the DRAX station's launch windows.](../output/figures/orbit_period_windows.png){#fig:orbit}
 
@@ -81,11 +106,14 @@ is **{{CENTRIFUGE_ALLOWABLE_S}} s** — the +Gz tolerance envelope derated by th
 This is a substantive negative result, not a modelling artefact: the shooting
 script's training sequence is *outside* the survivable envelope this package
 computes, and the model reports so rather than being tuned until it agrees.
-The remediation the model implies is direct — hold the plateau at or below
-{{CENTRIFUGE_ALLOWABLE_S}} s at {{CENTRIFUGE_PEAK_G}} g, or lower the peak so
-the envelope widens. `tests/test_mission_results.py` pins both the failing
-verdict and its flip under a shortened plateau, so this paragraph cannot drift
-away from the computation.
+The remediation the model implies is itself computed, not inferred: holding the
+plateau at **{{REMEDIATION_SUSTAIN_S}} s** — cutting
+**{{REMEDIATION_REDUCTION_S}} s** from the {{CONFIG_SUSTAIN_S}} s plateau —
+yields a **{{REMEDIATION_VERDICT}}** run
+(``REMEDIATION_SAFE = {{REMEDIATION_SAFE}}``) under the same tolerance and
+procedural ceilings. `tests/test_mission_results.py` pins both the failing
+verdict and the certification of this remediated profile, so this paragraph
+cannot drift away from the computation.
 
 Each session accumulates
 **{{TRAINING_PER_SESSION_GS}} g·s** of exposure; under the

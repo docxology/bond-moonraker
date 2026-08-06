@@ -80,6 +80,34 @@ class TestStrictMode:
         with pytest.raises(FileNotFoundError):
             generate_variables(tmp_path, require_analysis_outputs=True)
 
+    def test_strict_mode_proceeds_when_outputs_exist(self, tmp_path: Path) -> None:
+        """With `output/data/mission_results.json` present, strict mode builds a
+        map instead of raising — the positive half of the strict guard.
+
+        (This is the one branch the subprocess smoke test alone used to cover;
+        binding it here inside the coverage window keeps
+        `manuscript_variables.py` at 100% line+branch.)
+        """
+        manuscript = tmp_path / "manuscript"
+        manuscript.mkdir()
+        (manuscript / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "paper": {"title": "Moonraker", "date": "2026-08-06"},
+                    "authors": [{"name": "A"}],
+                    "keywords": ["k"],
+                    "mission": {"deadline_min": 60.0},
+                }
+            ),
+            encoding="utf-8",
+        )
+        results_file = tmp_path / "output" / "data" / "mission_results.json"
+        results_file.parent.mkdir(parents=True)
+        results_file.write_text('{"ok": true}\n', encoding="utf-8")
+        variables = generate_variables(tmp_path, require_analysis_outputs=True)
+        assert variables["SHUTTLE_FEASIBLE"] == "yes"
+        assert variables["MANUSCRIPT_DATE"] == "2026-08-06"
+
     def test_draft_mode_works_without_outputs(self, tmp_path: Path) -> None:
         manuscript = tmp_path / "manuscript"
         manuscript.mkdir()
