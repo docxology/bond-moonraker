@@ -1,8 +1,9 @@
-# Standalone / local package identity — moonraker (DRAX)
+# Standalone package identity — moonraker (DRAX)
 
-This is a **local-only** `PROJECT BOND` package: it lives at
-`projects/working/bond/moonraker/`, is never pushed to any remote, and carries
-no DOI or publication record.
+This is a **standalone** `PROJECT BOND` package: it carries no DOI or
+publication record, and its only suite dependency is the `bond-api` protocol
+package, resolved as the sibling checkout `../bond-api`. The repository is
+published at <https://github.com/docxology/bond-moonraker>.
 
 ## Identity
 
@@ -20,8 +21,7 @@ no DOI or publication record.
 - Registered with the BOND suite via `bond_api` discovery + `GadgetRegistry`;
   the orchestrator consumes it by slug.
 
-## Local-only contract
+## Repo contract
 
-- No remote, never push. `git add -A` only inside this repo, path-scoped
-  commits.
+- Commits stay inside this repository and are path-scoped.
 - `output/` is regenerable and git-ignored.

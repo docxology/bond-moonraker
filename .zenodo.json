@@ -6,7 +6,7 @@
       "orcid": "0000-0001-6232-9096"
     }
   ],
-  "description": "DRAX: special-agent mission software modelled on Moonraker (1979). Space-shuttle hijack timelining (critical path method), Drax space-station orbital logistics (Kepler orbit physics, launch windows, consumables), and centrifuge g-force training profiles. Member of the local-only PROJECT BOND suite.",
+  "description": "DRAX: special-agent mission software modelled on Moonraker (1979). Space-shuttle hijack timelining (critical path method), Drax space-station orbital logistics (Kepler orbit physics, launch windows, consumables), and centrifuge g-force training profiles. Member of the PROJECT BOND suite.",
   "keywords": [
     "space-shuttle hijack timeline",
     "critical path method",

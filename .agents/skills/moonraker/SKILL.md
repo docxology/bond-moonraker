@@ -9,8 +9,8 @@ tags: [bond, film-package, mission-provider, shuttle, orbital, centrifuge]
 
 # moonraker
 
-Project-scoped skill for the PROJECT BOND package at
-`projects/working/bond/moonraker/`. Load when working inside the package.
+Project-scoped skill for the PROJECT BOND package in this repository
+(`docxology/bond-moonraker`). Load when working inside the package.
 
 ## When to Use
 
@@ -23,7 +23,7 @@ Project-scoped skill for the PROJECT BOND package at
 ## Quick Reference
 
 ```bash
-cd projects/working/bond/moonraker
+cd <repo root>            # sibling of the `bond-api` checkout
 uv sync --extra dev
 uv run python scripts/run_mission.py                    # full flow + artifacts
 uv run python scripts/brief.py                          # per-phase CLIs

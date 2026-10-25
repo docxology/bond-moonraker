@@ -4,7 +4,7 @@ type: "manuscript_guide"
 version: "0.2.0"
 ---
 
-# Manuscript (`projects/working/bond/moonraker/manuscript/`)
+# Manuscript (`manuscript/`)
 
 Agent rules for this directory. Repository-wide rules:
 [`../docs/agent_instructions.md`](../docs/agent_instructions.md).

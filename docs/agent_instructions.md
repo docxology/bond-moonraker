@@ -14,8 +14,8 @@ run, in what order, and what will reject your change.
 ## Hard rules
 
 1. **Scope is exactly this directory.** Never edit a sibling BOND package, the
-   bond root files, or the template repo. This is a local-only tree with no
-   remote: commit here, never push.
+   bond root files, or the template repo. Commits stay inside this repository,
+   published at <https://github.com/docxology/bond-moonraker>.
 2. **Zero mocks.** No `unittest.mock`, `MagicMock`, `@patch` or
    `create_autospec` in `tests/`. Real parameters through real functions. A mock
    can pass while the arithmetic is wrong.

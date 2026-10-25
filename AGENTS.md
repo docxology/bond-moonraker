@@ -11,7 +11,8 @@ BOND-API `MissionProvider` protocol.
 
 - **Scope = exactly this package dir.** Never touch sibling packages, bond root
   files, or the template repo.
-- **Local-only.** No remote, never push. Commit only within this repo.
+- **Repo-scoped.** Commit only inside this repository, published at
+  <https://github.com/docxology/bond-moonraker>.
 - **Zero mocks.** Real data + computation only; deterministic fakes implement
   the REAL protocol.
 - **≥90% line+branch coverage on `src/`**: `uv run pytest tests/ --cov=src --cov-fail-under=90`.

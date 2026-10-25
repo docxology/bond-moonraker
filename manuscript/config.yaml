@@ -20,8 +20,8 @@ film: "Moonraker"
 codename: "DRAX"
 
 publication:
-  # Local-only BOND suite package: no remote, no DOI, never published.
-  repository_url: ""
+  # No DOI or publication record; the repository itself is public.
+  repository_url: "https://github.com/docxology/bond-moonraker"
   journal: "PROJECT BOND · film suite"
 
 keywords:

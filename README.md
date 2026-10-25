@@ -5,8 +5,11 @@ A `PROJECT BOND` suite package (film: **Moonraker**, 1979 · mission codename
 deterministic, fully-tested scientific package, and exposes them through the
 frozen **BOND-API** `MissionProvider` protocol.
 
-**Local-only working tree.** This package lives in
-`projects/working/bond/moonraker/` and never pushes to a remote.
+**Published package.** The repository is
+<https://github.com/docxology/bond-moonraker>. Its working tree is a sibling of
+the `bond-api` checkout it depends on (`[tool.uv.sources]` in `pyproject.toml`
+resolves `bond-api` as `../bond-api`), so both must sit side by side to
+`uv sync`.
 
 ## The film, as a specification
 

@@ -5,15 +5,18 @@ codename **DRAX**). Seven pure stdlib domain modules (CPM scheduling, time-cost
 crashing, Kepler logistics, Hohmann transfer, Clohessy–Wiltshire rendezvous,
 +Gz centrifuge adjudication, exposure-capped training) are composed by one
 canonical computation (`mission_results.py`) that feeds the manuscript tokens,
-the figures and the frozen BOND-API `MissionProvider` adapter. Measured on
-2026-08-05 by `uv run pytest tests/ --cov=src --cov-fail-under=90`: **249 tests
-passing, 0 failed, 0 skipped, 99.92% line+branch coverage on `src/`** (every
-module at 100.00% except `manuscript_variables.py` at 98.36%). `ruff check`,
-`ruff format --check` and `mypy src/ scripts/` are clean; zero mocks in
-`tests/`. What is already built is described in `README.md`,
+the figures and the frozen BOND-API `MissionProvider` adapter. Test counts and
+coverage live in `docs/_generated/COUNTS.md` and are not restated here;
+`ruff check`, `ruff format --check` and `mypy src/ scripts/` are clean, and
+`tests/` uses zero mocks. What is already built is described in `README.md`,
 `docs/architecture.md` and the manuscript — this file does not duplicate them.
 
 ## Open work
+
+**Round-2 status (2026-08-06): C1, C2, C3, V1, D1 and D2 below are closed.**
+Their write-ups are kept as the defect record; see *Round-2* at the foot of this
+file for each fix and its regression evidence. E1–E5 and the *Known limitations*
+list are still open.
 
 ### Correctness
 
@@ -242,7 +245,8 @@ no signature change to `MissionOutcome`, `wall_time_s` still `0.0`, and
 
 ## Verification
 
-Run from `projects/working/bond/moonraker/`. If `uv` reports
+Run from the repository root (the working tree must be a sibling of the
+`bond-api` checkout, which `[tool.uv.sources]` resolves as `../bond-api`). If `uv` reports
 `Failed to initialize cache`, the sandbox is blocking `~/.cache/uv`; re-run
 outside it.
 
@@ -250,11 +254,12 @@ outside it.
 uv sync --all-extras                                     # bare `uv sync` prunes pytest
 
 uv run pytest tests/ --cov=src --cov-fail-under=90 -q    # THE GATE
-#  expect: 241 passed, TOTAL 99.92%, "Required test coverage of 90% reached"
+#  expect: 0 failed, "Required test coverage of 90% reached"
+#  (counts and coverage %: docs/_generated/COUNTS.md — not restated here)
 
 uv run ruff check src/ scripts/ tests/                   # expect: All checks passed!
-uv run ruff format --check src/ scripts/ tests/          # expect: 41 files already formatted
-uv run mypy src/ scripts/                                # expect: no issues in 19 source files
+uv run ruff format --check src/ scripts/ tests/          # expect: no reformat needed
+uv run mypy src/ scripts/                                # expect: Success: no issues found
 
 grep -rn "MagicMock\|mocker.patch\|unittest.mock" tests/*.py || echo "no mocks: clean"
 #  expect: "no mocks: clean" (tests/PATTERNS.md names the banned symbols in prose)

@@ -1,7 +1,8 @@
 # PROJECT BOND — moonraker (Moonraker, 1979) · mission codename DRAX
 # Special-agent mission software: space-shuttle hijack timeline modelling,
 # Drax space-station orbital logistics, and centrifuge g-force training
-# profiles. This package is a local-only member of the BOND suite (never push).
+# profiles. Standalone member of the BOND suite; published at
+# github.com/docxology/bond-moonraker.
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -32,7 +33,9 @@ dev = [
 ]
 
 [tool.uv.sources]
-bond-api = { path = "/Users/4d/Documents/GitHub/template/projects/working/bond/bond-api" }
+# Sibling checkout of the frozen BOND-API protocol (see AGENTS.md). Relative so
+# the package resolves the same way in any clone of the BOND suite.
+bond-api = { path = "../bond-api" }
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
