@@ -2,8 +2,10 @@
 
 This is a **standalone** `PROJECT BOND` package: it carries no DOI or
 publication record, and its only suite dependency is the `bond-api` protocol
-package, resolved as the sibling checkout `../bond-api`. The repository is
-published at <https://github.com/docxology/bond-moonraker>.
+package, recorded in `vendor/bond-api` (upstream sha and per-file digests in
+its `PROVENANCE.json`, verified offline by `scripts/vendor.py --check`), so the
+clone resolves without a sibling checkout. The repository is published at
+<https://github.com/docxology/bond-moonraker>.
 
 ## Identity
 

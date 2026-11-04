@@ -83,8 +83,8 @@ uv run mypy src/ scripts/
 uv run pytest tests/ --cov=src --cov-fail-under=90 -q
 uv run ruff check src/ scripts/ tests/ && uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
-grep -rn "MagicMock\|mocker.patch\|unittest.mock" tests/ || echo "no mocks: clean"
-grep -rn "template[_]code_project" --include='*.py' --include='*.md' . || echo "no lineage strings: clean"
+grep -rn --include='*.py' "MagicMock\|mocker.patch\|unittest.mock" tests/ || echo "no mocks: clean"
+grep -rn "template[_]code_project" --include='*.py' --include='*.md' . || echo "no lineage strings in .py/.md: clean"
 git status --short                        # clean after your commit
 ```
 

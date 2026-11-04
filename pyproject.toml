@@ -33,8 +33,10 @@ dev = [
 ]
 
 [tool.uv.sources]
-# Sibling checkout of the frozen BOND-API protocol (see AGENTS.md). Relative so
-# the package resolves the same way in any clone of the BOND suite.
+# The frozen BOND-API protocol, recorded in vendor/bond-api (upstream sha and
+# per-file digests in its PROVENANCE.json; verified offline by
+# scripts/vendor.py --check). Relative to this package, so a clone resolves on
+# its own; refresh the copy through that script, never in place.
 bond-api = { path = "vendor/bond-api" }
 
 [tool.pytest.ini_options]

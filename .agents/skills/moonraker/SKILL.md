@@ -23,13 +23,13 @@ Project-scoped skill for the PROJECT BOND package in this repository
 ## Quick Reference
 
 ```bash
-cd <repo root>            # sibling of the `bond-api` checkout
+cd <repo root>            # bond-api is the recorded copy in vendor/bond-api
 uv sync --extra dev
 uv run python scripts/run_mission.py                    # full flow + artifacts
 uv run python scripts/brief.py                          # per-phase CLIs
 uv run python scripts/z_generate_manuscript_variables.py
 uv run pytest tests/ --cov=src --cov-fail-under=90 -q   # gate (>=90%)
-uv run ruff check src/ scripts/ tests/ && uv run ruff format src/ scripts/ tests/
+uv run ruff check src/ scripts/ tests/ && uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
 ```
 

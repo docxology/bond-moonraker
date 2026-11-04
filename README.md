@@ -6,10 +6,11 @@ deterministic, fully-tested scientific package, and exposes them through the
 frozen **BOND-API** `MissionProvider` protocol.
 
 **Published package.** The repository is
-<https://github.com/docxology/bond-moonraker>. Its working tree is a sibling of
-the `bond-api` checkout it depends on (`[tool.uv.sources]` in `pyproject.toml`
-resolves `bond-api` as `../bond-api`), so both must sit side by side to
-`uv sync`.
+<https://github.com/docxology/bond-moonraker>. Its `bond-api` dependency is
+recorded in `vendor/bond-api` — `[tool.uv.sources]` in `pyproject.toml`
+resolves `bond-api` to that copy, with the upstream sha and per-file digests in
+`vendor/bond-api/PROVENANCE.json` — so the clone resolves on its own and no
+sibling checkout is needed.
 
 ## The film, as a specification
 
@@ -64,7 +65,7 @@ output/            regenerable artifacts (git-ignored, never hand-edited)
 ## Quick start
 
 ```bash
-uv sync --extra dev                                       # deps + bond-api path dependency
+uv sync --extra dev                                       # deps + the vendored bond-api (vendor/bond-api)
 
 uv run python scripts/run_mission.py                      # full flow + all artifacts
 uv run python scripts/brief.py                            # ... or one phase at a time
