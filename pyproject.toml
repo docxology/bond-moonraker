@@ -33,9 +33,11 @@ dev = [
 ]
 
 [tool.uv.sources]
-# Sibling checkout of the frozen BOND-API protocol (see AGENTS.md). Relative so
-# the package resolves the same way in any clone of the BOND suite.
-bond-api = { path = "../bond-api" }
+# The frozen BOND-API protocol, recorded in vendor/bond-api (upstream sha and
+# per-file digests in its PROVENANCE.json; verified offline by
+# scripts/vendor.py --check). Relative to this package, so a clone resolves on
+# its own; refresh the copy through that script, never in place.
+bond-api = { path = "vendor/bond-api" }
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
@@ -64,6 +66,8 @@ exclude_lines = [
 ]
 
 [tool.mypy]
+# Vendored copies are a dependency; their bytes are bound by scripts/vendor.py.
+exclude = ["(^|/)vendor/"]
 python_version = "3.10"
 mypy_path = ["src"]
 explicit_package_bases = true
@@ -73,6 +77,8 @@ warn_return_any = true
 warn_unused_configs = true
 
 [tool.ruff]
+# The vendored copies are byte-identical to upstream and must stay that way.
+extend-exclude = ["vendor"]
 line-length = 99
 target-version = "py310"
 src = ["src", "scripts", "tests"]

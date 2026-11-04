@@ -24,7 +24,7 @@ BOND-API `MissionProvider` protocol.
 ## Build
 
 ```bash
-uv sync --extra dev     # installs deps + the bond-api local path dependency
+uv sync --extra dev     # installs deps + the vendored bond-api (vendor/bond-api)
 ```
 
 Re-run after any `pyproject.toml` edit; a fresh scaffold's `.venv` has no deps.
@@ -67,7 +67,7 @@ uv run pytest tests/test_centrifuge.py -q                 # one module
 uv run ruff check src/ scripts/ tests/
 uv run ruff format --check src/ scripts/ tests/           # drop --check to apply
 uv run mypy src/ scripts/
-grep -rn "MagicMock\|mocker.patch\|unittest.mock" tests/ || echo "no mocks: clean"
+grep -rn --include='*.py' "MagicMock\|mocker.patch\|unittest.mock" tests/ || echo "no mocks: clean"
 git status --short                                        # clean after your commit
 ```
 
@@ -90,7 +90,8 @@ The domain core stays importable without `bond-api` installed. Full detail:
 ## Protocol integration
 
 - Local path dependency in `pyproject.toml`:
-  `bond-api = { path = "../bond-api" }`.
+  `bond-api = { path = "vendor/bond-api" }` — the recorded copy, refreshed
+  through `scripts/vendor.py` and never edited in place.
 - `src/moonraker/mission.py` exposes `MissionProvider`, `PROVIDER`, `provider`,
   `GADGETS`, `FILM` and `CODENAME` at module top level, implements the five
   stages (`brief`/`recon`/`plan`/`execute`/`debrief`), and registers its real

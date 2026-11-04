@@ -147,6 +147,67 @@ figure — or a token carries the ratio explicitly.
 **Command:** `uv run python scripts/run_mission.py && uv run python scripts/z_generate_manuscript_variables.py`
 then read `output/manuscript/03_results.md`.
 
+**D3 — the vendored copy is excluded from this package's lint gate, and this
+records what that exclusion changes.** `[tool.ruff]` already declared this
+package's own rule set (`line-length = 99`) rather than inheriting one; the
+vendoring added `extend-exclude = ["vendor"]` to that table and
+`exclude = ["(^|/)vendor/"]` to `[tool.mypy]`. Measured at the lock's ruff
+0.17.2 with a two-arm control that keeps the table in this file and varies only
+its body, whole-tree scope: **as committed** `ruff check .` is rc=0 and
+`ruff format --check .` is rc=1 with **1** target (`TODO.md:31:6`, pre-existing
+— see D6, 75 files already formatted); **with the exclusion line deleted**
+`ruff check .` is rc=1 with **23 errors**, all of them in `vendor/` (`ruff check
+vendor/` alone reports the same 23, and the scoped tree is clean either way),
+and `ruff format --check .` is rc=1 with **7 targets** — six under `vendor/`
+plus the same pre-existing one. The documented gate is scoped to
+`src/ scripts/ tests/` and moves only by the two files the vendoring adds
+(42 → 44, all formatted). **Command:** both arms, same file — (a) `uv run ruff
+check . && uv run ruff format --check .`; (b) delete the `extend-exclude` line
+and repeat.
+
+**D4 — two of the four documented mock-audit spellings could not print "no
+mocks: clean", and the lineage audit's stated scope hid a carrier.**
+(a) The mock audit is documented four times: `AGENTS.md` (`tests/`),
+`docs/agent_instructions.md` (`tests/`), `TODO.md` (`tests/*.py`), and the dated
+gate-number block (`tests/`, history — left as written). Measured: the `tests/`
+form returns **1 hit** — `tests/PATTERNS.md:5`, the rule's own prose — so grep
+exits 0 and the `|| echo "no mocks: clean"` fallback is never taken; the
+`tests/*.py` form returns 0 hits and prints it. Both live `tests/` spellings now
+pass `--include='*.py'` and print it (rc=1, 0 hits, measured), and the
+expectation's own comment in `TODO.md` names the residual — `tests/PATTERNS.md`
+still says the banned symbols in prose, deliberately.
+(b) The lineage audit (`docs/agent_instructions.md`) states `no lineage
+strings: clean` while scanning only `--include='*.py' --include='*.md'`; the
+tracked `.template-export.json:1086` carries `"source_project":
+"templates/template_code_project"` from the phase-0 scaffold — a true
+provenance record outside that scope. The expectation now says which scope it
+speaks for (`no lineage strings in .py/.md: clean`), and the JSON is left as
+the record it is. **Command:** `grep -rn --include='*.py'
+"MagicMock\|mocker.patch\|unittest.mock" tests/ || echo "no mocks: clean"` and
+the lineage command as printed in the checklist.
+
+**D5 — the skill's Quick Reference ran the formatter where it means to check.**
+`.agents/skills/moonraker/SKILL.md:32` paired the gate line with `ruff format
+src/ scripts/ tests/` (no `--check`) while `AGENTS.md` and
+`docs/agent_instructions.md` use `--check`. As written the command rewrites
+unformatted files and exits **0** whether or not it rewrote anything, so it
+cannot report the thing it sits beside. **Fixed, both arms measured at ruff 0.17.2** against a
+deliberately misformatted file: the formatter exits 0 and rewrites it
+(`1 file reformatted`); `ruff format --check` exits **1** and reports
+`unformatted: File would be reformatted` without touching it. **Command:** `uv
+run ruff format --check src/ scripts/ tests/`.
+
+**D6 — the whole-tree format check is red on a code block the gate does not
+read, at both ends of this change.** `ruff format --check .` reports
+`TODO.md:31:6` — the fenced `launch_windows` reproducer — at the pre-vendoring
+head `1a897f4` (1 target, 73 already formatted) and at this head (1 target, 75
+already formatted); ruff 0.17.2 formats fenced Python blocks in Markdown. The
+documented gate is scoped to `src/ scripts/ tests/` and has never included
+`TODO.md`, so nothing regressed here; the row exists so the red is recorded
+rather than silently carried, and it is not fixed here because this change does
+not own that line. **Command:** `uv run ruff format --check .` (expect rc=1,
+`TODO.md:31:6`).
+
 ### Extension
 
 **E1 — decide `gor_tolerance_multiplier`: wire it in or delete it.**
@@ -245,8 +306,9 @@ no signature change to `MissionOutcome`, `wall_time_s` still `0.0`, and
 
 ## Verification
 
-Run from the repository root (the working tree must be a sibling of the
-`bond-api` checkout, which `[tool.uv.sources]` resolves as `../bond-api`). If `uv` reports
+Run from the repository root (a clone of this package resolves on its own:
+`[tool.uv.sources]` points at the recorded copy in `vendor/bond-api`, verified
+offline by `scripts/vendor.py --check`). If `uv` reports
 `Failed to initialize cache`, the sandbox is blocking `~/.cache/uv`; re-run
 outside it.
 
@@ -262,7 +324,8 @@ uv run ruff format --check src/ scripts/ tests/          # expect: no reformat n
 uv run mypy src/ scripts/                                # expect: Success: no issues found
 
 grep -rn "MagicMock\|mocker.patch\|unittest.mock" tests/*.py || echo "no mocks: clean"
-#  expect: "no mocks: clean" (tests/PATTERNS.md names the banned symbols in prose)
+#  expect: "no mocks: clean" (tests/PATTERNS.md names the banned symbols in prose,
+#  which is why the scan is limited to *.py — see D4)
 
 uv run python scripts/run_mission.py                     # regenerates output/ (exit 0)
 uv run python scripts/z_generate_manuscript_variables.py # strict; exit 2 without outputs
