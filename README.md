@@ -5,6 +5,30 @@ A `PROJECT BOND` suite package (film: **Moonraker**, 1979 · mission codename
 deterministic, fully-tested scientific package, and exposes them through the
 frozen **BOND-API** `MissionProvider` protocol.
 
+## Mission model
+
+```mermaid
+flowchart TD
+    accTitle: Moonraker implemented mission analyses
+    accDescr: Shuttle activities, station orbit and centrifuge training parameters feed Critical path and time-cost crashing; Station logistics and Hohmann transfer; G-force tolerance and exposure-capped training. The mission adapter returns schedule, resupply, intercept and training assessments with provenance, then a debrief.
+    I["Shuttle activities, station orbit and centrifuge training parameters"]
+    G0["Critical path and time-cost crashing"]
+    I --> G0
+    G1["Station logistics and Hohmann transfer"]
+    I --> G1
+    G2["G-force tolerance and exposure-capped training"]
+    I --> G2
+    O["mission.py: execute returns MissionOutcome<br/>Schedule, resupply, intercept and training assessments and provenance"]
+    G0 --> O
+    G1 --> O
+    G2 --> O
+    O --> F["debrief: mission summary"]
+```
+
+The branches group implemented capabilities; they do not imply a runtime order.
+
+**Source map:** [`shuttle_ops.py`](src/moonraker/shuttle_ops.py), [`schedule_crashing.py`](src/moonraker/schedule_crashing.py); [`orbital_logistics.py`](src/moonraker/orbital_logistics.py), [`orbital_transfer.py`](src/moonraker/orbital_transfer.py); [`centrifuge.py`](src/moonraker/centrifuge.py), [`centrifuge_training.py`](src/moonraker/centrifuge_training.py); [`mission.py`](src/moonraker/mission.py).
+
 **Published package.** The repository is
 <https://github.com/docxology/bond-moonraker>. Its `bond-api` dependency is
 recorded in `vendor/bond-api` — `[tool.uv.sources]` in `pyproject.toml`
