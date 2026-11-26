@@ -1,5 +1,7 @@
 # docs/ — moonraker (mission DRAX)
 
+[Package maintenance](package-maintenance.md) covers dependency and release records.
+
 Everything an agent or developer needs to work inside the moonraker package
 that is longer than a line in the root `README.md`. Four hand-maintained files
 and one generated one.

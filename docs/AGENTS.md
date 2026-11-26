@@ -1,5 +1,7 @@
 # docs/ — Agent-Facing Documentation Hub (moonraker / DRAX)
 
+[Package maintenance](package-maintenance.md) identifies the dependency and citation records.
+
 Technical overview of the moonraker documentation tree: what each file owns, how
 the tree is kept true, and what to update when the code moves.
 
