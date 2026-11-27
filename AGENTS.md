@@ -1,5 +1,8 @@
 # AGENTS.md — moonraker (mission DRAX)
 
+The [package maintenance guide](docs/package-maintenance.md) records the
+distribution identity, Python selection, dependency provenance, and citation metadata.
+
 **moonraker** is a `PROJECT BOND` suite package modelling the DRAX mission from
 *Moonraker* (1979) across three concept areas — the shuttle hijack (critical-path
 timeline and time-cost crashing), the Drax station (orbital logistics, Hohmann
